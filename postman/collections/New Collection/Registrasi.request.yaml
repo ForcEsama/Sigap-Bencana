@@ -1,0 +1,20 @@
+$kind: http-request
+description: ""
+url: http://127.0.0.1:8000/api/register
+method: POST
+body:
+  type: json
+  content: "{\r
+
+    \  \"name\": \"Pengguna Uji\",\r
+
+    \  \"email\": \"pengguna.uji@example.com\",\r
+
+    \  \"phone\": \"081234567890\",\r
+
+    \  \"password\": \"Sigap12345!\",\r
+
+    \  \"password_confirmation\": \"Sigap12345!\"\r
+
+    }"
+order: 2000

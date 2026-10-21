@@ -1,0 +1,22 @@
+$kind: http-request
+name: http://127.0.0.1:8000/api/reports
+description: ""
+url: http://127.0.0.1:8000/api/reports
+method: POST
+body:
+  type: json
+  content: |
+    
+    {
+      "title": "Laporan Uji Banjir",
+      "disaster_type": "banjir",
+      "description": "Pengujian API laporan SIGAP BENCANA.",
+      "address": "Lokasi pengujian, Padang, Sumatera Barat",
+      "latitude": -0.9471,
+      "longitude": 100.4172
+    }
+auth:
+  type: bearer
+  credentials:
+    token: 3|2dhImBgrNu5TgDSam8zqFedc4zycd2ktTPPEPsTa094d1976
+order: 5000

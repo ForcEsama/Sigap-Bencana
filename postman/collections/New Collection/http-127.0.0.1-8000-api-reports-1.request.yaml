@@ -1,0 +1,13 @@
+$kind: http-request
+name: http://127.0.0.1:8000/api/reports
+description: ""
+url: http://127.0.0.1:8000/api/reports
+method: GET
+body:
+  type: json
+  content: ""
+auth:
+  type: bearer
+  credentials:
+    token: 3|2dhImBgrNu5TgDSam8zqFedc4zycd2ktTPPEPsTa094d1976
+order: 6000
