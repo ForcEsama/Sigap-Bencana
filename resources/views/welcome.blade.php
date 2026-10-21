@@ -40,22 +40,16 @@
                        items-center justify-between px-6 py-6
                        md:px-12 lg:px-16">
 
-            <!-- Logo -->
-            <a href="/" class="flex items-center gap-2">
-                <div class="flex h-10 w-10 items-center justify-center
-                            rounded-lg bg-red-600 text-xl font-bold text-white">
-                    S
-                </div>
-
-                <div class="leading-tight">
-                    <h2 class="text-xl font-extrabold tracking-wide text-gray-900">
-                        SIGAP
-                    </h2>
-                    <p class="text-[10px] font-bold tracking-[0.25em] text-gray-800">
-                        BENCANA
-                    </p>
-                </div>
+            <!-- Logo SIGAP BENCANA -->
+            <a href="/" class="flex shrink-0 items-center">
+                <img
+                    src="{{ asset('images/SigapBencanaLogo.png') }}"
+                    alt="Logo SIGAP BENCANA"
+                    class="h-auto w-32 object-contain sm:w-36"
+                >
             </a>
+
+
 
             <!-- Navigasi Desktop -->
             <nav class="hidden items-center gap-8 md:flex">
