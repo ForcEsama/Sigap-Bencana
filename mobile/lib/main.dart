@@ -1,6 +1,10 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
+
+import 'config/api_config.dart';
+import 'register_page.dart';
+import 'login_page.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,6 +20,45 @@ void main() {
   );
 
   runApp(const SigapBencanaApp());
+}
+
+Future<void> testApiConnection(BuildContext context) async {
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+      content: Text('Menghubungkan ke server Laravel...'),
+    ),
+  );
+
+  try {
+    final response = await http
+        .get(Uri.parse(ApiConfig.user))
+        .timeout(const Duration(seconds: 10));
+
+    debugPrint('Status API: ${response.statusCode}');
+    debugPrint('Respons API: ${response.body}');
+
+    if (!context.mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Status API: ${response.statusCode}'),
+        backgroundColor:
+            response.statusCode == 401 ? Colors.green : Colors.blueGrey,
+      ),
+    );
+  } catch (e) {
+    debugPrint('Gagal menghubungi API: $e');
+
+    if (!context.mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Koneksi gagal: $e'),
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 5),
+      ),
+    );
+  }
 }
 
 class SigapBencanaApp extends StatelessWidget {
@@ -50,28 +93,24 @@ class WelcomePage extends StatelessWidget {
     final size = MediaQuery.sizeOf(context);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFEEF1),
+      backgroundColor: pinkBackground,
       body: SafeArea(
         child: Column(
           children: [
-            // Area utama: background berada di belakang konten
             Expanded(
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  // Background ilustrasi penyelamat
                   Positioned.fill(
                     child: ClipPath(
                       clipper: HeroCurveClipper(),
                       child: Image.asset(
                         'assets/images/registration-page-background.png',
                         fit: BoxFit.cover,
-                        alignment: Alignment(0, -1),
+                        alignment: const Alignment(0, -1),
                       ),
                     ),
                   ),
-
-                  // Logo dan deskripsi di depan background
                   Align(
                     alignment: Alignment.topCenter,
                     child: Padding(
@@ -106,7 +145,7 @@ class WelcomePage extends StatelessWidget {
               ),
             ),
 
-            // Tombol Masuk dan Daftar Akun
+            // Tombol Masuk, Daftar Akun, dan Tes API
             Padding(
               padding: EdgeInsets.fromLTRB(
                 24,
@@ -121,11 +160,10 @@ class WelcomePage extends StatelessWidget {
                     height: 48,
                     child: ElevatedButton(
                       onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Halaman Masuk akan dibuat berikutnya.',
-                            ),
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const LoginPage(),
                           ),
                         );
                       },
@@ -148,11 +186,10 @@ class WelcomePage extends StatelessWidget {
                     height: 48,
                     child: OutlinedButton(
                       onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Halaman Daftar Akun akan dibuat berikutnya.',
-                            ),
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const RegisterPage(),
                           ),
                         );
                       },
@@ -170,6 +207,15 @@ class WelcomePage extends StatelessWidget {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 6),
+                  TextButton.icon(
+                    onPressed: () => testApiConnection(context),
+                    icon: const Icon(Icons.wifi, size: 18),
+                    label: const Text('Tes Koneksi API'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.blueGrey,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -180,7 +226,6 @@ class WelcomePage extends StatelessWidget {
   }
 }
 
-// Membuat batas atas ilustrasi sedikit bergelombang.
 class HeroCurveClipper extends CustomClipper<Path> {
   @override
   Path getClip(Size size) {
