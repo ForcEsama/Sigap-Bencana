@@ -1,5 +1,5 @@
-
 import 'package:flutter/material.dart';
+
 import 'services/auth_service.dart';
 
 class HomePage extends StatefulWidget {
@@ -135,10 +135,7 @@ class _HomePageState extends State<HomePage> {
                 ),
                 Text(
                   date,
-                  style: const TextStyle(
-                    fontSize: 9,
-                    color: Colors.grey,
-                  ),
+                  style: const TextStyle(fontSize: 9, color: Colors.grey),
                 ),
               ],
             ),
@@ -152,20 +149,19 @@ class _HomePageState extends State<HomePage> {
     String label,
     IconData icon, {
     bool selected = false,
+    VoidCallback? onTap,
   }) {
     return Expanded(
       child: InkWell(
-        onTap: () {
-          if (!selected) _comingSoon(label);
-        },
+        onTap:
+            onTap ??
+            () {
+              if (!selected) _comingSoon(label);
+            },
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              icon,
-              size: 21,
-              color: selected ? red : Colors.black,
-            ),
+            Icon(icon, size: 21, color: selected ? red : Colors.black),
             const SizedBox(height: 3),
             Text(
               label,
@@ -180,15 +176,96 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Future<void> _showAccountMenu() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.person_outline),
+                title: Text(userName),
+                subtitle: const Text('Akun SIGAP Bencana'),
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.logout, color: red),
+                title: const Text('Keluar', style: TextStyle(color: red)),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _confirmLogout();
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _confirmLogout() async {
+    final shouldLogout = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Keluar dari akun?'),
+          content: const Text(
+            'Sesi SIGAP Bencana di perangkat ini akan dihapus.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Batal'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Keluar'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldLogout != true) return;
+
+    final serverRevoked = await AuthService.logout();
+
+    if (!mounted) return;
+
+    if (!serverRevoked) {
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) {
+          return AlertDialog(
+            title: const Text('Sesi perangkat dihapus'),
+            content: const Text(
+              'Server belum mengonfirmasi pencabutan token. Token server mungkin masih aktif sampai dicabut saat koneksi tersedia.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('Mengerti'),
+              ),
+            ],
+          );
+        },
+      );
+    }
+
+    if (!mounted) return;
+
+    Navigator.of(context).pushNamedAndRemoveUntil('/welcome', (route) => false);
+  }
+
   Widget _bottomNavigation() {
     return Container(
       height: 68,
       padding: const EdgeInsets.symmetric(horizontal: 6),
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(
-          top: BorderSide(color: Color(0xFFF1DDE1)),
-        ),
+        border: Border(top: BorderSide(color: Color(0xFFF1DDE1))),
       ),
       child: Row(
         children: [
@@ -223,7 +300,13 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
           _navItem('Notification', Icons.notifications),
-          _navItem('Profile', Icons.person),
+          _navItem(
+            'Profile',
+            Icons.person,
+            onTap: () {
+              _showAccountMenu();
+            },
+          ),
         ],
       ),
     );
@@ -275,10 +358,7 @@ class _HomePageState extends State<HomePage> {
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(5),
                         gradient: const LinearGradient(
-                          colors: [
-                            Color(0xFFD50032),
-                            Color(0xFF970019),
-                          ],
+                          colors: [Color(0xFFD50032), Color(0xFF970019)],
                         ),
                       ),
                       child: Padding(

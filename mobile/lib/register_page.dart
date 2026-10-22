@@ -76,7 +76,6 @@ class _RegisterPageState extends State<RegisterPage> {
           decoded is Map<String, dynamic> ? decoded : {};
 
       debugPrint('Register status: ${response.statusCode}');
-      debugPrint('Register response: ${response.body}');
 
       if (!mounted) return;
 

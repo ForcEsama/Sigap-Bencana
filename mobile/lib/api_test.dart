@@ -1,5 +1,6 @@
-
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+
 import 'config/api_config.dart';
 
 Future<void> testApiConnection() async {
@@ -8,9 +9,8 @@ Future<void> testApiConnection() async {
         .get(Uri.parse(ApiConfig.user))
         .timeout(const Duration(seconds: 10));
 
-    print('Status API: ${response.statusCode}');
-    print('Respons API: ${response.body}');
+    debugPrint('Status API: ${response.statusCode}');
   } catch (e) {
-    print('Gagal menghubungi API: $e');
+    debugPrint('Gagal menghubungi API: $e');
   }
 }

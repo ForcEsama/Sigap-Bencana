@@ -3,8 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 
 import 'config/api_config.dart';
+import 'services/auth_service.dart';
 import 'register_page.dart';
 import 'login_page.dart';
+import 'home_page.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,9 +26,7 @@ void main() {
 
 Future<void> testApiConnection(BuildContext context) async {
   ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(
-      content: Text('Menghubungkan ke server Laravel...'),
-    ),
+    const SnackBar(content: Text('Menghubungkan ke server Laravel...')),
   );
 
   try {
@@ -35,15 +35,15 @@ Future<void> testApiConnection(BuildContext context) async {
         .timeout(const Duration(seconds: 10));
 
     debugPrint('Status API: ${response.statusCode}');
-    debugPrint('Respons API: ${response.body}');
 
     if (!context.mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Status API: ${response.statusCode}'),
-        backgroundColor:
-            response.statusCode == 401 ? Colors.green : Colors.blueGrey,
+        backgroundColor: response.statusCode == 401
+            ? Colors.green
+            : Colors.blueGrey,
       ),
     );
   } catch (e) {
@@ -73,11 +73,84 @@ class SigapBencanaApp extends StatelessWidget {
         useMaterial3: true,
         fontFamily: 'Poppins',
         scaffoldBackgroundColor: const Color(0xFFFFEEF1),
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFFD50032),
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFFD50032)),
+      ),
+      routes: {'/welcome': (_) => const WelcomePage()},
+      home: const SessionGate(),
+    );
+  }
+}
+
+class SessionGate extends StatefulWidget {
+  const SessionGate({super.key});
+
+  @override
+  State<SessionGate> createState() => _SessionGateState();
+}
+
+class _SessionGateState extends State<SessionGate> {
+  SessionRestoreStatus? _status;
+  bool _continueWithoutConnection = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _restoreSession();
+  }
+
+  Future<void> _restoreSession() async {
+    final status = await AuthService.restoreSession();
+
+    if (!mounted) return;
+
+    setState(() => _status = status);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_status == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    if (_status == SessionRestoreStatus.authenticated) {
+      return const HomePage();
+    }
+
+    if (_status == SessionRestoreStatus.signedOut ||
+        _continueWithoutConnection) {
+      return const WelcomePage();
+    }
+
+    return Scaffold(
+      backgroundColor: WelcomePage.pinkBackground,
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.cloud_off_outlined, size: 48),
+                const SizedBox(height: 16),
+                const Text(
+                  'Sesi belum dapat diperiksa karena server tidak terjangkau.',
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: _restoreSession,
+                  child: const Text('Coba Lagi'),
+                ),
+                TextButton(
+                  onPressed: () =>
+                      setState(() => _continueWithoutConnection = true),
+                  child: const Text('Lanjut tanpa login'),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
-      home: const WelcomePage(),
     );
   }
 }
@@ -162,9 +235,7 @@ class WelcomePage extends StatelessWidget {
                       onPressed: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(
-                            builder: (_) => const LoginPage(),
-                          ),
+                          MaterialPageRoute(builder: (_) => const LoginPage()),
                         );
                       },
                       style: ElevatedButton.styleFrom(

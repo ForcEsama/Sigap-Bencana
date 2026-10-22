@@ -67,7 +67,6 @@ class _LoginPageState extends State<LoginPage> {
           .timeout(const Duration(seconds: 20));
 
       debugPrint('Login status: ${response.statusCode}');
-      debugPrint('Login response: ${response.body}');
 
       dynamic decoded;
 

@@ -32,9 +32,9 @@ class LoginController extends Controller
             ->first();
 
         if (
-            !$user ||
-            !Hash::check($request->input('password'), $user->password) ||
-            !$user->is_active
+            ! $user ||
+            ! Hash::check($request->input('password'), $user->password) ||
+            ! $user->is_active
         ) {
             return back()
                 ->withErrors([
@@ -46,7 +46,7 @@ class LoginController extends Controller
         Auth::login($user, $request->boolean('remember'));
         $request->session()->regenerate();
 
-        return redirect()->intended('/')->with(
+        return redirect()->intended(route('home'))->with(
             'success',
             'Berhasil masuk ke SIGAP BENCANA!'
         );
