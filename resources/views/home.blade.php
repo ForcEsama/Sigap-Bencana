@@ -4,109 +4,141 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SIGAP BENCANA</title>
-    <style>
-        * { box-sizing: border-box; }
-        body {
-            margin: 0;
-            font-family: Arial, sans-serif;
-            background: #f4f7fb;
-            color: #1e293b;
+    <title>Beranda - SIGAP BENCANA</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { poppins: ['Poppins', 'sans-serif'] },
+                    colors: { sigap: '#D50032', softpink: '#FFECEE' }
+                }
+            }
         }
-        header {
-            background: #123b5d;
-            color: white;
-            padding: 20px 7%;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 15px;
-        }
-        header h2 { margin: 0; }
-        nav a {
-            color: white;
-            text-decoration: none;
-            margin-left: 20px;
-        }
-        .hero {
-            padding: 75px 7%;
-            background: linear-gradient(120deg, #123b5d, #187b91);
-            color: white;
-        }
-        .hero h1 { font-size: clamp(32px, 5vw, 48px); }
-        .hero p { max-width: 600px; line-height: 1.8; }
-        .content { padding: 35px 7%; }
-        .cards {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 20px;
-        }
-        .card {
-            background: white;
-            padding: 24px;
-            border-radius: 12px;
-            box-shadow: 0 3px 12px #0000000d;
-        }
-        .card h3 { color: #123b5d; }
-        footer {
-            text-align: center;
-            padding: 24px;
-            color: #64748b;
-        }
-    </style>
+    </script>
 </head>
-<body>
-    <header>
-        <h2>SIGAP BENCANA</h2>
-        <nav>
-            <a href="/">Beranda</a>
-            <a href="#layanan">Layanan</a>
-            <a href="#tentang">Tentang</a>
-        </nav>
-    </header>
 
-    <section class="hero">
-        <h1>Siaga Menghadapi Bencana</h1>
-        <p>
-            Platform informasi kebencanaan untuk membantu masyarakat
-            memperoleh informasi, mengenali risiko, dan mempersiapkan
-            langkah keselamatan.
-        </p>
-    </section>
+<body class="min-h-screen bg-[#FFECEE] font-poppins text-gray-900">
 
-    <main class="content" id="layanan">
-        <h2>Layanan SIGAP BENCANA</h2>
-        <div class="cards">
-            <article class="card">
-                <h3>Peringatan Dini</h3>
-                <p>Informasi peringatan dan potensi ancaman bencana.</p>
-            </article>
-            <article class="card">
-                <h3>Peta Bencana</h3>
-                <p>Informasi lokasi dan wilayah berisiko bencana.</p>
-            </article>
-            <article class="card">
-                <h3>Lapor Kejadian</h3>
-                <p>Sarana pelaporan kejadian bencana oleh masyarakat.</p>
-            </article>
-            <article class="card">
-                <h3>Tempat Evakuasi</h3>
-                <p>Informasi lokasi evakuasi dan tempat berkumpul aman.</p>
-            </article>
+    <!-- Navbar -->
+    <nav class="relative z-10 flex min-h-[68px] items-center justify-between bg-white px-5 py-3 shadow-sm md:px-9">
+    <a href="{{ url('/') }}" class="flex items-center">
+        <img
+            src="{{ asset('images/SigapBencanaLogo.png') }}"
+            alt="SIGAP BENCANA"
+            class="h-10 w-auto object-contain"
+        >
+    </a>
+
+        <div class="hidden items-center gap-7 text-sm md:flex">
+            <a href="{{ url('/') }}" class="font-medium text-sigap">Home</a>
+            <a href="#peta" class="transition hover:text-sigap">Map</a>
+            <a href="#berita" class="transition hover:text-sigap">News</a>
+
+            <div class="group relative">
+                <button class="flex items-center gap-2 hover:text-sigap">
+                    Menu <i class="fa-solid fa-chevron-down text-xs"></i>
+                </button>
+
+                <div class="invisible absolute left-0 top-full mt-3 w-48 rounded-lg bg-white py-2 opacity-0 shadow-lg transition group-hover:visible group-hover:opacity-100">
+                    <a href="#lapor" class="block px-4 py-2 hover:bg-gray-50">Lapor Kejadian</a>
+                    <a href="#evakuasi" class="block px-4 py-2 hover:bg-gray-50">Tempat Evakuasi</a>
+                    <a href="#kontak" class="block px-4 py-2 hover:bg-gray-50">Kontak Darurat</a>
+                </div>
+            </div>
         </div>
-    </main>
 
-    <section class="content" id="tentang">
-        <h2>Tentang SIGAP BENCANA</h2>
-        <p>
-            SIGAP BENCANA dikembangkan sebagai platform multiplatform
-            yang mengintegrasikan website dan aplikasi mobile.
-        </p>
+        <div class="flex items-center gap-3 text-sm">
+            @auth
+                <button type="button" aria-label="Notifikasi" class="relative p-1 text-xl">
+                    <i class="fa-regular fa-bell"></i>
+                    <span class="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-sigap text-[9px] text-white">3</span>
+                </button>
+
+                <div class="flex items-center gap-2">
+                    <div class="flex h-7 w-7 items-center justify-center rounded-full bg-gray-500 text-xs text-white">
+                        {{ strtoupper(substr(auth()->user()->name, 0, 1)) }}
+                    </div>
+                    <span class="hidden sm:inline">{{ auth()->user()->name }}</span>
+                </div>
+
+                <form action="{{ route('logout') }}" method="POST">
+                    @csrf
+                    <button type="submit" class="rounded border border-gray-300 px-3 py-1.5 text-xs transition hover:border-sigap hover:text-sigap">
+                        Keluar
+                    </button>
+                </form>
+            @else
+                <a href="{{ route('login') }}" class="text-sigap hover:underline">Masuk</a>
+                <a href="{{ route('register') }}" class="rounded bg-sigap px-3 py-2 text-xs text-white hover:bg-red-700">Daftar</a>
+            @endauth
+        </div>
+    </nav>
+
+    <!-- Hero -->
+    <section class="relative flex h-[1000vh] min-h-[350px] max-h-[700px] items-center overflow-hidden bg-gray-800">
+        <div class="absolute inset-0">
+            <img src="{{ asset('images/home-hero1.png') }}"
+                 alt="Kondisi wilayah terdampak bencana"
+                 class="h-full w-full object-cover object-center">
+            <div class="absolute inset-0 bg-gradient-to-r from-[#BC0013]/95 via-[#BC0013]/70 to-transparent"></div>
+        </div>
+
+        <div class="relative z-[1] max-w-5xl px-6 py-14 text-white md:px-12">
+            <h1 class="text-3xl font-medium leading-tight sm:text-6xl md:text-[80px]">
+                Bersama Lebih Siap,<br>
+                Lebih Aman
+            </h1>
+
+            <p class="mt-2 max-w-3x1 text-sm leading-relaxed sm:text-3xl">
+                Platform informasi, pemantauan, dan pelaporan bencana
+                demi masyarakat yang lebih tangguh
+            </p>
+
+            <a href="#peta"
+               class="mt-6 inline-flex min-h-16 items-center rounded-md bg-white px-7 py-2 text-2xl font-medium text-sigap transition hover:bg-gray-100">
+                Lihat Peta Risiko
+            </a>
+        </div>
     </section>
 
-    <footer>
-        &copy; {{ date('Y') }} SIGAP BENCANA
-    </footer>
+    <!-- Layanan utama -->
+    <section class="relative z-[2] mx-4 -mt-12 min-h-[200px] rounded-t-lg rounded-b-lg bg-white px-4 py-8 shadow-sm sm:mx-12 sm:px-8 md:-mt-20 md:px-10 md:py-10">
+        <div class="grid grid-cols-2 gap-x-4 gap-y-8 md:grid-cols-4">
+
+            <a href="#peringatan" class="group flex flex-col items-center text-center">
+                <div class="flex h-16 w-16 items-center justify-center rounded-md bg-red-200 text-3xl text-red-700 transition group-hover:scale-105">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                </div>
+                <span class="mt-3 text-sm font-medium sm:text-base">Peringatan Bencana</span>
+            </a>
+
+            <a href="#lapor" class="group flex flex-col items-center text-center">
+                <div class="flex h-16 w-16 items-center justify-center rounded-md bg-amber-100 text-3xl text-amber-600 transition group-hover:scale-105">
+                    <i class="fa-solid fa-house-medical"></i>
+                </div>
+                <span class="mt-3 text-sm font-medium sm:text-base">Lapor Kejadian</span>
+            </a>
+
+            <a href="#evakuasi" class="group flex flex-col items-center text-center">
+                <div class="flex h-16 w-16 items-center justify-center rounded-md bg-emerald-100 text-3xl text-emerald-500 transition group-hover:scale-105">
+                    <i class="fa-solid fa-tent"></i>
+                </div>
+                <span class="mt-3 text-sm font-medium sm:text-base">Tempat Evakuasi</span>
+            </a>
+
+            <a href="#kontak" class="group flex flex-col items-center text-center">
+                <div class="flex h-16 w-16 items-center justify-center rounded-md bg-fuchsia-200 text-3xl text-fuchsia-600 transition group-hover:scale-105">
+                    <i class="fa-solid fa-phone"></i>
+                </div>
+                <span class="mt-3 text-sm font-medium sm:text-base">Kontak Darurat</span>
+            </a>
+
+        </div>
+    </section>
 </body>
 </html>

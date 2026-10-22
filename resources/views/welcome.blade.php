@@ -97,11 +97,6 @@
                         md:px-12 lg:px-16">
 
             <div class="max-w-xl">
-                <p class="mb-4 font-semibold uppercase tracking-[0.2em]
-                          text-red-700">
-                    SIGAP BENCANA
-                </p>
-
                 <h1 class="text-4xl font-extrabold leading-tight
                            tracking-tight text-gray-950
                            sm:text-5xl lg:text-6xl">
