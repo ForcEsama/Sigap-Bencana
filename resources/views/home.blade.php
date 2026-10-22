@@ -26,9 +26,13 @@
 
     <!-- Navbar -->
     <nav class="relative z-10 flex min-h-[68px] items-center justify-between bg-white px-5 py-3 shadow-sm md:px-9">
-        <a href="{{ url('/') }}" class="text-base font-semibold">
-            Sigap Bencana
-        </a>
+    <a href="{{ url('/') }}" class="flex items-center">
+        <img
+            src="{{ asset('images/SigapBencanaLogo.png') }}"
+            alt="SIGAP BENCANA"
+            class="h-10 w-auto object-contain"
+        >
+    </a>
 
         <div class="hidden items-center gap-7 text-sm md:flex">
             <a href="{{ url('/') }}" class="font-medium text-sigap">Home</a>
@@ -76,34 +80,34 @@
     </nav>
 
     <!-- Hero -->
-    <section class="relative flex h-[52vh] min-h-[350px] max-h-[500px] items-center overflow-hidden bg-gray-800">
+    <section class="relative flex h-[1000vh] min-h-[350px] max-h-[700px] items-center overflow-hidden bg-gray-800">
         <div class="absolute inset-0">
-            <img src="{{ asset('images/home-hero.png') }}"
+            <img src="{{ asset('images/home-hero1.png') }}"
                  alt="Kondisi wilayah terdampak bencana"
                  class="h-full w-full object-cover object-center">
             <div class="absolute inset-0 bg-gradient-to-r from-[#BC0013]/95 via-[#BC0013]/70 to-transparent"></div>
         </div>
 
-        <div class="relative z-[1] max-w-2xl px-6 py-14 text-white md:px-12">
-            <h1 class="text-3xl font-bold leading-tight sm:text-4xl md:text-[42px]">
+        <div class="relative z-[1] max-w-5xl px-6 py-14 text-white md:px-12">
+            <h1 class="text-3xl font-medium leading-tight sm:text-6xl md:text-[80px]">
                 Bersama Lebih Siap,<br>
                 Lebih Aman
             </h1>
 
-            <p class="mt-2 max-w-xl text-sm leading-relaxed sm:text-base">
+            <p class="mt-2 max-w-3x1 text-sm leading-relaxed sm:text-3xl">
                 Platform informasi, pemantauan, dan pelaporan bencana
                 demi masyarakat yang lebih tangguh
             </p>
 
             <a href="#peta"
-               class="mt-4 inline-flex min-h-10 items-center rounded-md bg-white px-5 py-2 text-xs font-medium text-sigap transition hover:bg-gray-100">
+               class="mt-6 inline-flex min-h-16 items-center rounded-md bg-white px-7 py-2 text-2xl font-medium text-sigap transition hover:bg-gray-100">
                 Lihat Peta Risiko
             </a>
         </div>
     </section>
 
     <!-- Layanan utama -->
-    <section class="relative z-[2] mx-4 -mt-12 min-h-[185px] rounded-t-lg bg-white px-4 py-8 shadow-sm sm:mx-8 sm:px-8 md:-mt-12 md:px-10 md:py-10">
+    <section class="relative z-[2] mx-4 -mt-12 min-h-[200px] rounded-t-lg rounded-b-lg bg-white px-4 py-8 shadow-sm sm:mx-12 sm:px-8 md:-mt-20 md:px-10 md:py-10">
         <div class="grid grid-cols-2 gap-x-4 gap-y-8 md:grid-cols-4">
 
             <a href="#peringatan" class="group flex flex-col items-center text-center">
