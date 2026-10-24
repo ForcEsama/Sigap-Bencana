@@ -59,7 +59,7 @@ class LoginController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect('/login')->with(
+        return redirect()->route('landing')->with(
             'success',
             'Kamu berhasil keluar dari akun.'
         );

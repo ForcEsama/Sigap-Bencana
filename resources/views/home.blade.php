@@ -36,7 +36,11 @@
 
         <div class="hidden items-center gap-7 text-sm md:flex">
             <a href="{{ url('/') }}" class="font-medium text-sigap">Home</a>
-            <a href="#peta" class="transition hover:text-sigap">Map</a>
+            @if (auth()->check() && auth()->user()->role === 'masyarakat')
+                <a href="{{ route('risk-map.index') }}" class="transition hover:text-sigap">Peta Risiko</a>
+            @else
+                <a href="#peta" class="transition hover:text-sigap">Map</a>
+            @endif
             <a href="#berita" class="transition hover:text-sigap">News</a>
 
             <div class="group relative">
@@ -45,7 +49,13 @@
                 </button>
 
                 <div class="invisible absolute left-0 top-full mt-3 w-48 rounded-lg bg-white py-2 opacity-0 shadow-lg transition group-hover:visible group-hover:opacity-100">
-                    <a href="#lapor" class="block px-4 py-2 hover:bg-gray-50">Lapor Kejadian</a>
+                    <a href="{{ route('reports.create') }}" class="block px-4 py-2 hover:bg-gray-50">Lapor Kejadian</a>
+                    @auth
+                        @if (auth()->user()->role === 'masyarakat')
+                            <a href="{{ route('reports.index') }}" class="block px-4 py-2 hover:bg-gray-50">Riwayat Laporan Saya</a>
+                            <a href="{{ route('profile.edit') }}" class="block px-4 py-2 hover:bg-gray-50">Profil</a>
+                        @endif
+                    @endauth
                     <a href="#evakuasi" class="block px-4 py-2 hover:bg-gray-50">Tempat Evakuasi</a>
                     <a href="#kontak" class="block px-4 py-2 hover:bg-gray-50">Kontak Darurat</a>
                 </div>
@@ -99,7 +109,7 @@
                 demi masyarakat yang lebih tangguh
             </p>
 
-            <a href="#peta"
+            <a href="{{ auth()->check() && auth()->user()->role === 'masyarakat' ? route('risk-map.index') : '#peta' }}"
                class="mt-6 inline-flex min-h-16 items-center rounded-md bg-white px-7 py-2 text-2xl font-medium text-sigap transition hover:bg-gray-100">
                 Lihat Peta Risiko
             </a>
@@ -117,7 +127,7 @@
                 <span class="mt-3 text-sm font-medium sm:text-base">Peringatan Bencana</span>
             </a>
 
-            <a href="#lapor" class="group flex flex-col items-center text-center">
+            <a href="{{ route('reports.create') }}" class="group flex flex-col items-center text-center">
                 <div class="flex h-16 w-16 items-center justify-center rounded-md bg-amber-100 text-3xl text-amber-600 transition group-hover:scale-105">
                     <i class="fa-solid fa-house-medical"></i>
                 </div>
