@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'reports/report_list_page.dart';
 import 'services/auth_service.dart';
 
 class HomePage extends StatefulWidget {
@@ -40,10 +41,11 @@ class _HomePageState extends State<HomePage> {
     String title,
     IconData icon,
     Color background,
-    Color foreground,
-  ) {
+    Color foreground, {
+    VoidCallback? onTap,
+  }) {
     return InkWell(
-      onTap: () => _comingSoon(title),
+      onTap: onTap ?? () => _comingSoon(title),
       borderRadius: BorderRadius.circular(5),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
@@ -75,72 +77,6 @@ class _HomePageState extends State<HomePage> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _newsCard({
-    required String category,
-    required String title,
-    required String date,
-    required IconData icon,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 7),
-      padding: const EdgeInsets.all(7),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(5),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 56,
-            height: 55,
-            decoration: BoxDecoration(
-              color: const Color(0xFFE6D7D9),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Icon(icon, size: 28, color: red),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 5,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFCDD5),
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                  child: Text(
-                    category,
-                    style: const TextStyle(fontSize: 9, color: red),
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                    height: 1.2,
-                  ),
-                ),
-                Text(
-                  date,
-                  style: const TextStyle(fontSize: 9, color: Colors.grey),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -477,6 +413,13 @@ class _HomePageState extends State<HomePage> {
                           Icons.add_home_work,
                           const Color(0xFFFFEDB7),
                           const Color(0xFFC68B00),
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => const ReportListPage(),
+                              ),
+                            );
+                          },
                         ),
                         _serviceCard(
                           'Berita &\nEdukasi',
@@ -515,18 +458,27 @@ class _HomePageState extends State<HomePage> {
                       ],
                     ),
 
-                    _newsCard(
-                      category: 'Banjir',
-                      title: 'Waspada Banjir di Beberapa Wilayah Jawa Tengah',
-                      date: '12 Sep 2025',
-                      icon: Icons.water,
-                    ),
-
-                    _newsCard(
-                      category: 'Gempa',
-                      title: 'Gempa Magnitudo 5.2 Guncang Maluku',
-                      date: '12 Nov 2026',
-                      icon: Icons.landscape,
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(5),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.newspaper_outlined, color: Colors.black45),
+                          SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Berita belum tersedia dari sumber resmi.',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF77717A),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
 
                     const SizedBox(height: 5),
