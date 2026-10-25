@@ -78,23 +78,37 @@
         </header>
 
         <section class="rounded-lg bg-white p-4 shadow-sm sm:p-6">
+            @php
+                $riskLayerConfigs = config('risk_map.layers');
+                $defaultRiskLayer = config('risk_map.default_layer');
+            @endphp
             <div class="mb-4 rounded-lg border border-rose-100 bg-[#fff8f8] p-4">
-                <div class="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                        <h2 class="font-semibold">Indeks Risiko Banjir — InaRISK</h2>
-                        <p class="mt-1 text-sm text-gray-600">Overlay raster InaRISK/BNPB ditampilkan terpisah dari zona risiko lokal.</p>
+                <div class="flex flex-wrap items-end justify-between gap-4">
+                    <div class="min-w-0 flex-1">
+                        <label for="risk-type-filter" class="mb-1 block text-sm font-medium">Jenis peta risiko</label>
+                        <select id="risk-type-filter" class="w-full max-w-md rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-sigap focus:outline-none focus:ring-2 focus:ring-rose-200">
+                            @foreach ($riskLayerConfigs as $key => $riskLayer)
+                                <option value="{{ $key }}" @selected($key === $defaultRiskLayer)>{{ $riskLayer['label'] }}</option>
+                            @endforeach
+                        </select>
                     </div>
-                    <a href="https://gis.bnpb.go.id/server/rest/services/inarisk/layer_risiko_banjir/ImageServer" target="_blank" rel="noopener noreferrer" class="text-sm font-medium text-sigap underline">Sumber layer: InaRISK/BNPB</a>
+                    <a id="risk-layer-source-link" href="{{ $riskLayerConfigs[$defaultRiskLayer]['service_url'] }}" target="_blank" rel="noopener noreferrer" class="text-sm font-medium text-sigap underline">Sumber layer: InaRISK/BNPB</a>
                 </div>
-                <p class="mt-2 text-xs leading-relaxed text-gray-600">Tanggal pembaruan dataset dan legenda kelas risiko untuk layer ini belum terverifikasi. SIGAP BENCANA tidak menafsirkan nilai piksel menjadi kelas risiko.</p>
+                <h2 id="risk-layer-title" class="mt-4 font-semibold">Peta Risiko {{ $riskLayerConfigs[$defaultRiskLayer]['label'] }} — InaRISK</h2>
+                <p id="risk-layer-classification" class="mt-1 text-sm text-gray-600">Peta risiko BNPB. Layer peta bahaya, kerentanan, dan kejadian terkini tidak dicampur pada filter ini.</p>
+                <p id="risk-layer-date" class="mt-2 text-xs text-gray-600">Tanggal data tidak dicantumkan pada metadata REST yang diverifikasi.</p>
                 <p id="inarisk-status" class="mt-2 text-sm text-gray-600" role="status" aria-live="polite">Menyiapkan layer InaRISK…</p>
+                <div class="mt-4 rounded-lg bg-white p-3">
+                    <h3 id="inarisk-legend-title" class="text-sm font-semibold">Legenda layer BNPB</h3>
+                    <div id="inarisk-legend" class="mt-2 flex flex-wrap gap-x-4 gap-y-2 text-xs text-gray-700" aria-live="polite">Meminta legenda resmi dari layanan…</div>
+                </div>
             </div>
 
             <div id="risk-map" class="overflow-hidden rounded-lg" role="application" aria-label="Peta zona risiko bencana"></div>
             <p class="mt-2 text-xs text-gray-500">Lingkaran zona lokal menunjukkan radius perkiraan dari titik pusat, bukan batas wilayah resmi.</p>
 
                 <div class="mt-5 rounded-lg bg-[#fff8f8] p-4">
-                    <h2 class="mb-3 font-semibold">Legenda zona risiko lokal</h2>
+                    <h2 class="mb-3 font-semibold">Legenda zona risiko lokal SIGAP BENCANA</h2>
                     <div class="flex flex-wrap gap-x-6 gap-y-3 text-sm text-gray-700">
                         <span class="inline-flex items-center gap-2"><span class="h-3 w-3 rounded-full bg-red-600"></span>Risiko tinggi</span>
                         <span class="inline-flex items-center gap-2"><span class="h-3 w-3 rounded-full bg-amber-500"></span>Risiko sedang</span>
@@ -146,6 +160,8 @@
             <script src="https://unpkg.com/esri-leaflet@3.0.19/dist/esri-leaflet.js"></script>
             <script>
                     const riskZones = @js($mapZones);
+                    const riskLayerConfigs = @js($riskLayerConfigs);
+                    const defaultRiskLayer = @js($defaultRiskLayer);
                     const map = L.map('risk-map', { scrollWheelZoom: false }).setView([-2, 118], 4);
                     const osmLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
                         maxZoom: 19,
@@ -153,37 +169,143 @@
                     }).addTo(map);
                     const localZonesLayer = L.layerGroup().addTo(map);
                     const inariskStatus = document.getElementById('inarisk-status');
-                    const inariskUrl = 'https://gis.bnpb.go.id/server/rest/services/inarisk/layer_risiko_banjir/ImageServer';
-                    const overlayLayers = { 'Zona risiko lokal': localZonesLayer };
+                    const inariskLegend = document.getElementById('inarisk-legend');
+                    const inariskLegendTitle = document.getElementById('inarisk-legend-title');
+                    const riskTypeFilter = document.getElementById('risk-type-filter');
+                    const riskLayerTitle = document.getElementById('risk-layer-title');
+                    const riskLayerDate = document.getElementById('risk-layer-date');
+                    const riskLayerSourceLink = document.getElementById('risk-layer-source-link');
+                    let activeRiskLayer = null;
+                    let riskLayerRequest = 0;
+                    let layersControl = null;
 
-                    if (L.esri && typeof L.esri.imageMapLayer === 'function') {
-                        const inariskLayer = L.esri.imageMapLayer({
-                            url: inariskUrl,
-                            opacity: 0.7,
-                            useCors: true,
-                            attribution: 'Sumber layer: <a href="https://gis.bnpb.go.id/server/rest/services/inarisk/layer_risiko_banjir/ImageServer" target="_blank" rel="noopener noreferrer">InaRISK/BNPB</a>',
-                        });
-                        overlayLayers['Indeks Risiko Banjir — InaRISK'] = inariskLayer;
+                    const setStatus = (message, isError = false) => {
+                        inariskStatus.textContent = message;
+                        inariskStatus.className = `mt-2 text-sm ${isError ? 'text-rose-700' : 'text-gray-600'}`;
+                    };
 
-                        inariskLayer.on('loading', () => {
-                            inariskStatus.textContent = 'Memuat layer InaRISK…';
-                            inariskStatus.className = 'mt-2 text-sm text-gray-600';
-                        });
-                        inariskLayer.on('load', () => {
-                            inariskStatus.textContent = 'Layer InaRISK berhasil dimuat.';
-                            inariskStatus.className = 'mt-2 text-sm text-emerald-700';
-                        });
-                        inariskLayer.on('error', () => {
-                            inariskStatus.textContent = 'Layer InaRISK tidak dapat dimuat. Periksa koneksi atau kebijakan akses layanan; basemap dan zona lokal tetap tersedia.';
-                            inariskStatus.className = 'mt-2 text-sm text-rose-700';
-                        });
-                        inariskLayer.addTo(map);
-                    } else {
-                        inariskStatus.textContent = 'Adapter InaRISK tidak tersedia. Basemap dan zona lokal tetap dapat digunakan.';
-                        inariskStatus.className = 'mt-2 text-sm text-rose-700';
-                    }
+                    const updateLayersControl = () => {
+                        if (layersControl) map.removeControl(layersControl);
+                        const overlays = { 'Zona risiko lokal SIGAP BENCANA': localZonesLayer };
+                        if (activeRiskLayer) {
+                            overlays[`Peta risiko ${riskLayerConfigs[riskTypeFilter.value].label} — InaRISK`] = activeRiskLayer;
+                        }
+                        layersControl = L.control.layers({ 'OpenStreetMap': osmLayer }, overlays, {
+                            collapsed: window.innerWidth < 640,
+                        }).addTo(map);
+                    };
 
-                    L.control.layers({ 'OpenStreetMap': osmLayer }, overlayLayers, { collapsed: window.innerWidth < 640 }).addTo(map);
+                    const fetchServiceJson = async (url) => {
+                        const controller = new AbortController();
+                        const timeout = window.setTimeout(() => controller.abort(), 15000);
+                        try {
+                            const response = await fetch(url, { signal: controller.signal, headers: { Accept: 'application/json' } });
+                            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                            const payload = await response.json();
+                            if (payload.error) throw new Error(payload.error.message || 'ArcGIS REST mengembalikan error.');
+                            return payload;
+                        } finally {
+                            window.clearTimeout(timeout);
+                        }
+                    };
+
+                    const renderOfficialLegend = async (layerConfig, requestId) => {
+                        inariskLegendTitle.textContent = `Legenda resmi — ${layerConfig.label}`;
+                        inariskLegend.textContent = 'Meminta legenda resmi dari layanan…';
+                        try {
+                            const legendData = await fetchServiceJson(layerConfig.legend_url);
+                            if (requestId !== riskLayerRequest) return;
+                            const entries = (legendData.layers || []).flatMap((legendLayer) => legendLayer.legend || []);
+                            if (entries.length === 0) {
+                                inariskLegend.textContent = layerConfig.legend_fallback;
+                                return;
+                            }
+                            inariskLegend.replaceChildren();
+                            entries.forEach((entry) => {
+                                const item = document.createElement('div');
+                                item.className = 'flex items-center gap-2';
+                                if (entry.imageData && entry.contentType) {
+                                    const symbol = document.createElement('img');
+                                    symbol.src = `data:${entry.contentType};base64,${entry.imageData}`;
+                                    symbol.alt = '';
+                                    symbol.className = 'max-h-7 max-w-7 object-contain';
+                                    item.appendChild(symbol);
+                                }
+                                const label = document.createElement('span');
+                                label.textContent = entry.label || 'Kelas tanpa label pada layanan';
+                                item.appendChild(label);
+                                inariskLegend.appendChild(item);
+                            });
+                        } catch (error) {
+                            if (requestId === riskLayerRequest) {
+                                inariskLegend.textContent = `${layerConfig.legend_fallback} Legenda tidak dapat dimuat saat ini.`;
+                            }
+                        }
+                    };
+
+                    const isOutsideServiceExtent = (mapBounds, metadata) => {
+                        const extent = metadata.fullExtent;
+                        if (!extent || !extent.spatialReference || extent.spatialReference.wkid !== 3395) return null;
+                        const southWest = L.CRS.EPSG3395.project(mapBounds.getSouthWest());
+                        const northEast = L.CRS.EPSG3395.project(mapBounds.getNorthEast());
+                        return northEast.x < extent.xmin || southWest.x > extent.xmax
+                            || northEast.y < extent.ymin || southWest.y > extent.ymax;
+                    };
+
+                    const selectRiskLayer = async (key) => {
+                        const layerConfig = riskLayerConfigs[key];
+                        const requestId = ++riskLayerRequest;
+                        if (activeRiskLayer) {
+                            map.removeLayer(activeRiskLayer);
+                            activeRiskLayer = null;
+                            updateLayersControl();
+                        }
+                        riskLayerTitle.textContent = `Peta Risiko ${layerConfig.label} — InaRISK`;
+                        riskLayerDate.textContent = layerConfig.data_date
+                            ? `Tanggal data: ${layerConfig.data_date}`
+                            : 'Tanggal data tidak dicantumkan pada metadata REST yang diverifikasi.';
+                        riskLayerSourceLink.href = layerConfig.service_url;
+                        setStatus(`Memeriksa metadata dan cakupan ${layerConfig.label}…`);
+
+                        try {
+                            const metadata = await fetchServiceJson(layerConfig.metadata_url);
+                            if (requestId !== riskLayerRequest) return;
+                            const isOutside = isOutsideServiceExtent(map.getBounds(), metadata);
+                            if (isOutside === true) {
+                                setStatus(`Layer ${layerConfig.label} tidak mencakup area peta saat ini. Geser peta ke area layanan untuk melihat data.`, true);
+                                await renderOfficialLegend(layerConfig, requestId);
+                                return;
+                            }
+                            if (!L.esri || typeof L.esri.imageMapLayer !== 'function') {
+                                throw new Error('Adapter Esri Leaflet ImageServer tidak tersedia.');
+                            }
+                            activeRiskLayer = L.esri.imageMapLayer({ url: layerConfig.service_url, opacity: 0.7, useCors: true });
+                            activeRiskLayer.on('loading', () => setStatus(`Memuat peta risiko ${layerConfig.label}…`));
+                            activeRiskLayer.on('load', () => {
+                                if (requestId !== riskLayerRequest) return;
+                                setStatus(isOutside === null
+                                    ? `Layer ${layerConfig.label} dimuat. Cakupan area tidak dapat dipastikan dari metadata layanan.`
+                                    : `Layer ${layerConfig.label} dimuat. Area tanpa data pada raster dapat tampil kosong.`);
+                            });
+                            activeRiskLayer.on('error', () => {
+                                if (requestId === riskLayerRequest) {
+                                    setStatus(`Layer ${layerConfig.label} gagal dimuat dari BNPB. Basemap dan zona risiko lokal tetap tersedia.`, true);
+                                }
+                            });
+                            activeRiskLayer.addTo(map);
+                            updateLayersControl();
+                            await renderOfficialLegend(layerConfig, requestId);
+                        } catch (error) {
+                            if (requestId !== riskLayerRequest) return;
+                            setStatus(`Metadata atau layanan ${layerConfig.label} tidak dapat diakses. Periksa koneksi atau coba lagi. Basemap dan zona lokal tetap tersedia.`, true);
+                            inariskLegendTitle.textContent = `Legenda resmi — ${layerConfig.label}`;
+                            inariskLegend.textContent = layerConfig.legend_fallback;
+                        }
+                    };
+
+                    riskTypeFilter.addEventListener('change', (event) => selectRiskLayer(event.target.value));
+                    updateLayersControl();
+                    selectRiskLayer(defaultRiskLayer);
 
                     const riskColor = (riskLevel) => {
                         const level = String(riskLevel ?? '').trim().toLowerCase();

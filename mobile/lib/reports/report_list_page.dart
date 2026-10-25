@@ -4,6 +4,10 @@ import 'report_detail_page.dart';
 import 'report_formatters.dart';
 import 'report_service.dart';
 import 'report_form_page.dart';
+import '../sos/sos_request.dart';
+import '../sos/sos_sending_page.dart';
+import '../sos/sos_service.dart';
+import '../sos/sos_status_page.dart';
 
 class ReportListPage extends StatefulWidget {
   const ReportListPage({super.key});
@@ -17,11 +21,17 @@ class _ReportListPageState extends State<ReportListPage> {
   static const Color blush = Color(0xFFFFECED);
 
   final ReportService _reportService = ReportService();
+  final SosService _sosService = SosService();
   final List<Map<String, dynamic>> _reports = [];
+  List<SosRequest> _sosRequests = [];
+  List<Map<String, dynamic>> _pendingSosRequests = [];
 
   bool _isLoading = true;
   bool _isLoadingMore = false;
+  bool _reportsFromCache = false;
+  bool _sosFromCache = false;
   String? _error;
+  String? _sosError;
   int _currentPage = 1;
   int _lastPage = 1;
 
@@ -43,10 +53,34 @@ class _ReportListPageState extends State<ReportListPage> {
       }
     });
 
+    if (!loadMore) {
+      final pending = await _sosService.fetchPendingRequests();
+      if (mounted) setState(() => _pendingSosRequests = pending);
+    }
+
     try {
       final page = await _reportService.fetchReports(
         page: loadMore ? _currentPage + 1 : 1,
       );
+
+      SosRequestPage? sosPage;
+      String? sosError;
+      if (!loadMore) {
+        try {
+          sosPage = await _sosService.fetchRequests();
+        } on SosSessionExpired {
+          if (mounted) {
+            Navigator.of(context)
+                .pushNamedAndRemoveUntil('/welcome', (route) => false);
+          }
+          return;
+        } on SosApiException catch (exception) {
+          sosError = exception.message;
+        } catch (error) {
+          debugPrint('Gagal memuat riwayat SOS: $error');
+          sosError = 'Riwayat SOS belum dapat dimuat.';
+        }
+      }
 
       if (!mounted) return;
 
@@ -61,6 +95,10 @@ class _ReportListPageState extends State<ReportListPage> {
         _currentPage = page.currentPage;
         _lastPage = page.lastPage;
         _error = null;
+        _reportsFromCache = _reportService.lastReadFromCache;
+        if (sosPage != null) _sosRequests = sosPage.requests;
+        _sosFromCache = _sosService.lastReadFromCache;
+        _sosError = sosError;
       });
     } on ReportApiException catch (exception) {
       if (!mounted) return;
@@ -205,7 +243,10 @@ class _ReportListPageState extends State<ReportListPage> {
       return const Center(child: CircularProgressIndicator(color: red));
     }
 
-    if (_error != null && _reports.isEmpty) {
+    if (_error != null &&
+        _reports.isEmpty &&
+        _sosRequests.isEmpty &&
+        _pendingSosRequests.isEmpty) {
       return _messageState(
         icon: Icons.cloud_off_outlined,
         title: 'Laporan belum dapat dimuat',
@@ -218,7 +259,10 @@ class _ReportListPageState extends State<ReportListPage> {
       );
     }
 
-    if (_reports.isEmpty) {
+    if (_reports.isEmpty &&
+        _sosRequests.isEmpty &&
+        _pendingSosRequests.isEmpty &&
+        _sosError == null) {
       return _messageState(
         icon: Icons.assignment_outlined,
         title: 'Belum ada laporan',
@@ -239,12 +283,56 @@ class _ReportListPageState extends State<ReportListPage> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
         children: [
+          if (_reportsFromCache || _sosFromCache)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 10),
+              child: Text(
+                'Offline · riwayat berasal dari data terakhir yang tersimpan.',
+                style: TextStyle(fontSize: 12, color: Color(0xFF765500)),
+              ),
+            ),
           if (_error != null)
             Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: Text(
                 'Pembaruan laporan gagal: $_error',
                 style: const TextStyle(color: red, fontSize: 12),
+              ),
+            ),
+          if (_sosError != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Text(
+                'Riwayat SOS belum dapat dimuat: $_sosError',
+                style: const TextStyle(color: red, fontSize: 12),
+              ),
+            ),
+          if (_sosRequests.isNotEmpty) ...[
+            const Padding(
+              padding: EdgeInsets.only(bottom: 9),
+              child: Text(
+                'Permintaan SOS',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+              ),
+            ),
+            ..._sosRequests.map(_sosCard),
+          ],
+          if (_pendingSosRequests.isNotEmpty) ...[
+            const Padding(
+              padding: EdgeInsets.only(top: 4, bottom: 9),
+              child: Text(
+                'Belum Terkirim dari Perangkat',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+              ),
+            ),
+            ..._pendingSosRequests.map(_pendingSosCard),
+          ],
+          if (_reports.isNotEmpty)
+            const Padding(
+              padding: EdgeInsets.only(top: 4, bottom: 9),
+              child: Text(
+                'Laporan Kejadian',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
               ),
             ),
           ..._reports.map(_reportCard),
@@ -264,6 +352,102 @@ class _ReportListPageState extends State<ReportListPage> {
               ),
             ),
         ],
+      ),
+    );
+  }
+
+  Widget _sosCard(SosRequest request) => Card(
+    margin: const EdgeInsets.only(bottom: 12),
+    color: Colors.white,
+    elevation: 0,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(12),
+      side: const BorderSide(color: Color(0xFFE9DADD)),
+    ),
+    child: InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: () => Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (_) =>
+              SosStatusPage(sosRequestId: request.id, initialRequest: request),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.sos, color: red, size: 20),
+                const SizedBox(width: 7),
+                Text(
+                  request.reference,
+                  style: const TextStyle(
+                    color: red,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                  ),
+                ),
+                const Spacer(),
+                const Icon(Icons.chevron_right),
+              ],
+            ),
+            const SizedBox(height: 5),
+            Text(
+              sosDisasterTypeLabel(request.disasterType),
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              request.statusLabel,
+              style: const TextStyle(color: Colors.black54, fontSize: 12),
+            ),
+            if (request.address?.isNotEmpty == true) ...[
+              const SizedBox(height: 5),
+              Text(
+                request.address!,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 12),
+              ),
+            ],
+          ],
+        ),
+      ),
+    ),
+  );
+
+  Widget _pendingSosCard(Map<String, dynamic> request) {
+    final disasterType = request['disaster_type']?.toString() ?? '';
+    final clientRequestId = request['client_request_id']?.toString() ?? '';
+    final latitude = (request['latitude'] as num?)?.toDouble();
+    final longitude = (request['longitude'] as num?)?.toDouble();
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      color: const Color(0xFFFFF4D6),
+      elevation: 0,
+      child: ListTile(
+        leading: const Icon(Icons.cloud_off_outlined, color: red),
+        title: Text(sosDisasterTypeLabel(disasterType)),
+        subtitle: const Text(
+          'Tersimpan di perangkat. Belum terkirim ke server atau diterima petugas.',
+        ),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: clientRequestId.isEmpty || latitude == null || longitude == null
+            ? null
+            : () => Navigator.of(context).push<void>(
+                MaterialPageRoute<void>(
+                  builder: (_) => SosSendingPage(
+                    disasterType: disasterType,
+                    latitude: latitude,
+                    longitude: longitude,
+                    address: request['address']?.toString() ?? '',
+                    clientRequestId: clientRequestId,
+                  ),
+                ),
+              ),
       ),
     );
   }

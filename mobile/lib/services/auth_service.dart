@@ -67,7 +67,7 @@ class AuthService {
               'Authorization': 'Bearer $token',
             },
           )
-          .timeout(const Duration(seconds: 15));
+          .timeout(const Duration(seconds: 8));
 
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
