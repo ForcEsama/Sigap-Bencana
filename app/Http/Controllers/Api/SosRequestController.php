@@ -113,7 +113,11 @@ class SosRequestController extends Controller
                 : SosRequest::query()->find($sosRequestId);
 
             if ($sosRequest === null) {
-                throw $exception;
+                report($exception);
+
+                return response()->json([
+                    'message' => 'Server belum dapat menyimpan permintaan SOS. Coba kirim ulang permintaan yang sama beberapa saat lagi.',
+                ], 503);
             }
 
             $created = false;

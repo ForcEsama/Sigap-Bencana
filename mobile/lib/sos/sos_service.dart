@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../config/api_config.dart';
@@ -81,16 +82,77 @@ class SosService {
         maxCharacters: 250000,
       );
       return _sosRequestPageFrom(response, page);
-    } on SosApiException catch (error) {
-      if (error.statusCode != 0) rethrow;
+    } on SosApiException {
       final cached = await OfflineCache.read(
         'sos_page_$page',
         accountScoped: true,
       );
-      if (cached is! Map<String, dynamic>) rethrow;
+      if (cached is Map<String, dynamic>) {
+        lastReadFromCache = true;
+        return _sosRequestPageFrom(cached, page);
+      }
 
-      lastReadFromCache = true;
-      return _sosRequestPageFrom(cached, page);
+      final notificationRequests = await _requestsFromNotificationCache();
+      if (notificationRequests.isNotEmpty) {
+        lastReadFromCache = true;
+        return SosRequestPage(
+          requests: notificationRequests,
+          currentPage: page,
+          lastPage: page,
+        );
+      }
+
+      rethrow;
+    } catch (error, stackTrace) {
+      debugPrint('Gagal memproses riwayat SOS: $error\n$stackTrace');
+
+      final cached = await _requestsFromNotificationCache();
+      if (cached.isNotEmpty) {
+        lastReadFromCache = true;
+        return SosRequestPage(
+          requests: cached,
+          currentPage: page,
+          lastPage: page,
+        );
+      }
+
+      throw SosApiException(
+        500,
+        'Respons riwayat SOS tidak dapat diproses (${error.runtimeType}).',
+      );
+    }
+  }
+
+  Future<List<SosRequest>> _requestsFromNotificationCache() async {
+    try {
+      final cached = await OfflineCache.read(
+        'notifications_all',
+        accountScoped: true,
+      );
+      if (cached is! List) return const [];
+
+      final requestsById = <int, SosRequest>{};
+      for (final notification in cached.whereType<Map<String, dynamic>>()) {
+        final relatedRequest = notification['related_sos_request'];
+        if (relatedRequest is! Map<String, dynamic>) continue;
+
+        final request = SosRequest.fromJson(relatedRequest);
+        requestsById[request.id] = request;
+      }
+
+      final requests = requestsById.values.toList()
+        ..sort((first, second) {
+          return (second.requestedAt ?? DateTime(1970)).compareTo(
+            first.requestedAt ?? DateTime(1970),
+          );
+        });
+
+      return requests;
+    } catch (error, stackTrace) {
+      debugPrint(
+        'Gagal membaca snapshot SOS dari cache notifikasi: $error\n$stackTrace',
+      );
+      return const [];
     }
   }
 

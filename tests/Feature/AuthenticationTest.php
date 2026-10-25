@@ -25,6 +25,34 @@ class AuthenticationTest extends TestCase
             ->assertRedirect('/login');
     }
 
+    public function test_authenticated_home_links_to_the_feature_pages_and_real_notifications(): void
+    {
+        $response = $this->actingAs(User::factory()->create())
+            ->get(route('home'))
+            ->assertOk();
+
+        foreach ([
+            'risk-map.index',
+            'news-education.index',
+            'disaster-alerts.index',
+            'reports.create',
+            'reports.index',
+            'sos.create',
+            'evacuation-posts.index',
+            'emergency-contacts.index',
+            'notifications.index',
+            'profile.edit',
+        ] as $routeName) {
+            $response->assertSee('href="'.route($routeName).'"', false);
+        }
+
+        $response->assertDontSee('href="#peta"', false)
+            ->assertDontSee('href="#berita"', false)
+            ->assertDontSee('href="#peringatan"', false)
+            ->assertDontSee('href="#evakuasi"', false)
+            ->assertDontSee('href="#kontak"', false);
+    }
+
     public function test_web_registration_creates_an_account_without_verifying_email(): void
     {
         $response = $this->post('/register', [
@@ -87,10 +115,10 @@ class AuthenticationTest extends TestCase
 
         $this->actingAs($user)
             ->post('/logout')
-            ->assertRedirect('/login');
+            ->assertRedirect(route('landing'));
 
         $this->assertGuest();
-        $this->get('/home')->assertRedirect('/login');
+        $this->get('/home')->assertRedirect(route('login'));
     }
 
     public function test_mobile_registration_creates_an_account(): void

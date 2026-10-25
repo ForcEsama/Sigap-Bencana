@@ -11,18 +11,20 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('sos_request_idempotency_keys', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->uuid('client_request_id');
-            $table->foreignId('sos_request_id')
-                ->nullable()
-                ->constrained('sos_requests')
-                ->cascadeOnDelete();
-            $table->unique(['user_id', 'client_request_id']);
-            $table->unique('sos_request_id');
-            $table->timestamps();
-        });
+        if (! Schema::hasTable('sos_request_idempotency_keys')) {
+            Schema::create('sos_request_idempotency_keys', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+                $table->uuid('client_request_id');
+                $table->foreignId('sos_request_id')
+                    ->nullable()
+                    ->constrained('sos_requests')
+                    ->cascadeOnDelete();
+                $table->unique(['user_id', 'client_request_id']);
+                $table->unique('sos_request_id');
+                $table->timestamps();
+            });
+        }
     }
 
     /**
@@ -30,6 +32,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('sos_request_idempotency_keys');
+        // Preserve idempotency records during rollback.
     }
 };

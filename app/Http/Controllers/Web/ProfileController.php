@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
@@ -30,6 +31,30 @@ class ProfileController extends Controller
     private function updateProfile(Request $request): RedirectResponse
     {
         $user = $request->user();
+        $profileFields = [
+            'domicile_address',
+            'province',
+            'regency_city',
+            'district',
+            'village',
+            'postal_code',
+            'date_of_birth',
+            'gender',
+        ];
+        $missingProfileFields = array_filter(
+            $profileFields,
+            static fn (string $column): bool => ! Schema::hasColumn('users', $column),
+        );
+
+        if ($missingProfileFields !== []) {
+            return redirect()
+                ->route('profile.edit')
+                ->withErrors([
+                    'profile_schema' => 'Kolom profil tambahan belum tersedia pada database. Perubahan belum disimpan; jalankan migrasi database setelah masalah MySQL diperbaiki.',
+                ], 'profile')
+                ->withInput($request->except(['password', 'password_confirmation', 'current_password']));
+        }
+
         $validator = Validator::make($request->all(), [
             'name' => ['required', 'string', 'max:255'],
             'email' => [
@@ -38,6 +63,15 @@ class ProfileController extends Controller
                 'max:255',
                 Rule::unique('users', 'email')->ignore($user->getKey()),
             ],
+            'phone' => ['nullable', 'string', 'max:20'],
+            'domicile_address' => ['nullable', 'string', 'max:255'],
+            'province' => ['nullable', 'string', 'max:100'],
+            'regency_city' => ['nullable', 'string', 'max:100'],
+            'district' => ['nullable', 'string', 'max:100'],
+            'village' => ['nullable', 'string', 'max:100'],
+            'postal_code' => ['nullable', 'string', 'max:10'],
+            'date_of_birth' => ['nullable', 'date', 'before_or_equal:today'],
+            'gender' => ['nullable', Rule::in(['laki-laki', 'perempuan'])],
         ], [
             'name.required' => 'Nama wajib diisi.',
             'name.max' => 'Nama maksimal 255 karakter.',
@@ -50,7 +84,19 @@ class ProfileController extends Controller
             return redirect()
                 ->route('profile.edit')
                 ->withErrors($validator, 'profile')
-                ->withInput($request->only('name', 'email'));
+                ->withInput($request->only([
+                    'name',
+                    'email',
+                    'phone',
+                    'domicile_address',
+                    'province',
+                    'regency_city',
+                    'district',
+                    'village',
+                    'postal_code',
+                    'date_of_birth',
+                    'gender',
+                ]));
         }
 
         $validated = $validator->validated();
@@ -58,6 +104,15 @@ class ProfileController extends Controller
 
         $user->name = $validated['name'];
         $user->email = $validated['email'];
+        $user->phone = $validated['phone'] ?? null;
+        $user->domicile_address = $validated['domicile_address'] ?? null;
+        $user->province = $validated['province'] ?? null;
+        $user->regency_city = $validated['regency_city'] ?? null;
+        $user->district = $validated['district'] ?? null;
+        $user->village = $validated['village'] ?? null;
+        $user->postal_code = $validated['postal_code'] ?? null;
+        $user->date_of_birth = $validated['date_of_birth'] ?? null;
+        $user->gender = $validated['gender'] ?? null;
 
         if ($emailChanged) {
             $user->email_verified_at = null;

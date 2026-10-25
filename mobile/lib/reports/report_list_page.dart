@@ -9,8 +9,27 @@ import '../sos/sos_sending_page.dart';
 import '../sos/sos_service.dart';
 import '../sos/sos_status_page.dart';
 
+class _ReportLoadResult {
+  const _ReportLoadResult({this.page, this.error, this.sessionExpired = false});
+
+  final ReportPage? page;
+  final String? error;
+  final bool sessionExpired;
+}
+
+class _SosLoadResult {
+  const _SosLoadResult({this.page, this.error, this.sessionExpired = false});
+
+  final SosRequestPage? page;
+  final String? error;
+  final bool sessionExpired;
+}
+
 class ReportListPage extends StatefulWidget {
-  const ReportListPage({super.key});
+  const ReportListPage({this.reportService, this.sosService, super.key});
+
+  final ReportService? reportService;
+  final SosService? sosService;
 
   @override
   State<ReportListPage> createState() => _ReportListPageState();
@@ -20,8 +39,9 @@ class _ReportListPageState extends State<ReportListPage> {
   static const Color red = Color(0xFFD2002F);
   static const Color blush = Color(0xFFFFECED);
 
-  final ReportService _reportService = ReportService();
-  final SosService _sosService = SosService();
+  late final ReportService _reportService =
+      widget.reportService ?? ReportService();
+  late final SosService _sosService = widget.sosService ?? SosService();
   final List<Map<String, dynamic>> _reports = [];
   List<SosRequest> _sosRequests = [];
   List<Map<String, dynamic>> _pendingSosRequests = [];
@@ -53,67 +73,52 @@ class _ReportListPageState extends State<ReportListPage> {
       }
     });
 
-    if (!loadMore) {
-      final pending = await _sosService.fetchPendingRequests();
-      if (mounted) setState(() => _pendingSosRequests = pending);
-    }
-
     try {
-      final page = await _reportService.fetchReports(
-        page: loadMore ? _currentPage + 1 : 1,
-      );
-
-      SosRequestPage? sosPage;
-      String? sosError;
       if (!loadMore) {
         try {
-          sosPage = await _sosService.fetchRequests();
-        } on SosSessionExpired {
-          if (mounted) {
-            Navigator.of(context)
-                .pushNamedAndRemoveUntil('/welcome', (route) => false);
-          }
-          return;
-        } on SosApiException catch (exception) {
-          sosError = exception.message;
+          final pending = await _sosService.fetchPendingRequests();
+          if (mounted) setState(() => _pendingSosRequests = pending);
         } catch (error) {
-          debugPrint('Gagal memuat riwayat SOS: $error');
-          sosError = 'Riwayat SOS belum dapat dimuat.';
+          debugPrint('Gagal membaca antrean SOS lokal: $error');
         }
       }
 
-      if (!mounted) return;
+      final results = await Future.wait([
+        _loadReportPage(page: loadMore ? _currentPage + 1 : 1),
+        if (!loadMore) _loadSosPage(),
+      ]);
+      final reportResult = results.first as _ReportLoadResult;
+      final sosResult = loadMore ? null : results[1] as _SosLoadResult;
 
-      setState(() {
-        if (loadMore) {
-          _reports.addAll(page.reports);
-        } else {
-          _reports
-            ..clear()
-            ..addAll(page.reports);
+      if (reportResult.sessionExpired || sosResult?.sessionExpired == true) {
+        if (mounted) {
+          Navigator.of(context)
+              .pushNamedAndRemoveUntil('/welcome', (route) => false);
         }
-        _currentPage = page.currentPage;
-        _lastPage = page.lastPage;
-        _error = null;
-        _reportsFromCache = _reportService.lastReadFromCache;
-        if (sosPage != null) _sosRequests = sosPage.requests;
-        _sosFromCache = _sosService.lastReadFromCache;
-        _sosError = sosError;
-      });
-    } on ReportApiException catch (exception) {
-      if (!mounted) return;
-
-      if (exception.statusCode == 401) {
-        Navigator.of(context)
-            .pushNamedAndRemoveUntil('/welcome', (route) => false);
         return;
       }
 
-      setState(() => _error = exception.message);
-    } catch (_) {
       if (!mounted) return;
+
       setState(() {
-        _error = 'Laporan belum dapat dimuat. Periksa koneksi lalu coba lagi.';
+        if (reportResult.page != null) {
+          if (loadMore) {
+            _reports.addAll(reportResult.page!.reports);
+          } else {
+            _reports
+              ..clear()
+              ..addAll(reportResult.page!.reports);
+          }
+          _currentPage = reportResult.page!.currentPage;
+          _lastPage = reportResult.page!.lastPage;
+          _reportsFromCache = _reportService.lastReadFromCache;
+        }
+        _error = reportResult.error;
+        if (sosResult?.page != null) {
+          _sosRequests = sosResult!.page!.requests;
+          _sosFromCache = _sosService.lastReadFromCache;
+        }
+        _sosError = sosResult?.error;
       });
     } finally {
       if (mounted) {
@@ -122,6 +127,39 @@ class _ReportListPageState extends State<ReportListPage> {
           _isLoadingMore = false;
         });
       }
+    }
+  }
+
+  Future<_ReportLoadResult> _loadReportPage({required int page}) async {
+    try {
+      return _ReportLoadResult(
+        page: await _reportService.fetchReports(page: page),
+      );
+    } on ReportApiException catch (exception) {
+      return _ReportLoadResult(
+        error: exception.message,
+        sessionExpired: exception.statusCode == 401,
+      );
+    } catch (error) {
+      debugPrint('Gagal memuat laporan kejadian: $error');
+      return const _ReportLoadResult(
+        error: 'Laporan belum dapat dimuat. Periksa koneksi lalu coba lagi.',
+      );
+    }
+  }
+
+  Future<_SosLoadResult> _loadSosPage() async {
+    try {
+      return _SosLoadResult(page: await _sosService.fetchRequests());
+    } on SosSessionExpired {
+      return const _SosLoadResult(sessionExpired: true);
+    } on SosApiException catch (exception) {
+      return _SosLoadResult(error: exception.message);
+    } catch (error) {
+      debugPrint('Gagal memuat riwayat SOS: $error');
+      return _SosLoadResult(
+        error: 'Riwayat SOS gagal diproses (${error.runtimeType}).',
+      );
     }
   }
 

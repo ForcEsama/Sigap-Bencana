@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use App\Models\DisasterReport;
+use App\Services\UserNotificationWriter;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -19,7 +20,7 @@ class DisasterReportController extends Controller
         return view('reports.create');
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, UserNotificationWriter $notificationWriter): RedirectResponse
     {
         $request->merge([
             'address' => is_string($request->input('address'))
@@ -93,21 +94,34 @@ class DisasterReportController extends Controller
             : now();
 
         try {
-            $report = DB::transaction(fn (): DisasterReport => DisasterReport::create([
-                'user_id' => $request->user()->id,
-                'title' => 'Laporan '.$categoryLabels[$validated['disaster_type']].' - '.$reportTime->locale('id')->translatedFormat('d F Y H:i'),
-                'disaster_type' => $validated['disaster_type'],
-                'description' => $validated['description'],
-                'address' => $validated['address'],
-                'latitude' => $validated['latitude'],
-                'longitude' => $validated['longitude'],
-                'occurred_at' => $validated['occurred_at'] ?? null,
-                'photo_path' => $photoPath,
-                'verification_status' => 'pending',
-                'handling_status' => 'unhandled',
-                'verified_by' => null,
-                'verified_at' => null,
-            ]));
+            $report = DB::transaction(function () use ($request, $validated, $categoryLabels, $reportTime, $photoPath, $notificationWriter): DisasterReport {
+                $report = DisasterReport::create([
+                    'user_id' => $request->user()->id,
+                    'title' => 'Laporan '.$categoryLabels[$validated['disaster_type']].' - '.$reportTime->locale('id')->translatedFormat('d F Y H:i'),
+                    'disaster_type' => $validated['disaster_type'],
+                    'description' => $validated['description'],
+                    'address' => $validated['address'],
+                    'latitude' => $validated['latitude'],
+                    'longitude' => $validated['longitude'],
+                    'occurred_at' => $validated['occurred_at'] ?? null,
+                    'photo_path' => $photoPath,
+                    'verification_status' => 'pending',
+                    'handling_status' => 'unhandled',
+                    'verified_by' => null,
+                    'verified_at' => null,
+                ]);
+
+                $notificationWriter->create(
+                    $request->user(),
+                    'activity',
+                    'Laporan bencana berhasil dicatat',
+                    'Laporan kejadian #'.$report->id.' berhasil dicatat dan menunggu verifikasi.',
+                    'disaster_report',
+                    $report->id,
+                );
+
+                return $report;
+            });
         } catch (Throwable $exception) {
             if ($photoPath !== null) {
                 Storage::disk('local')->delete($photoPath);
