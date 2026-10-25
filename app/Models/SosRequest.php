@@ -59,4 +59,11 @@ class SosRequest extends Model
             IncidentHistory::class
         );
     }
+
+    public function reference(): string
+    {
+        $year = $this->requested_at?->format('Y') ?? now()->format('Y');
+
+        return sprintf('SOS-%s-%06d', $year, $this->getKey());
+    }
 }

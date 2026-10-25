@@ -35,4 +35,8 @@ return [
         ],
     ],
 
+    'news' => [
+        'sync_author_id' => env('NEWS_SYNC_AUTHOR_ID'),
+    ],
+
 ];

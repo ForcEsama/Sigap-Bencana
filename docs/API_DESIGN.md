@@ -1,6 +1,6 @@
 # Desain API SIGAP BENCANA
 
-Status: kontrak yang benar-benar terdaftar dan rancangan endpoint lanjutan, 23 Oktober 2026. Endpoint rencana bukan endpoint yang sudah tersedia. Bentuk JSON akhir perlu dikunci bersama kebijakan privasi, status, dan keputusan terbuka BRD.
+Status: kontrak yang benar-benar terdaftar dan rancangan endpoint lanjutan, 24 Oktober 2026. Endpoint rencana bukan endpoint yang sudah tersedia. Bentuk JSON akhir perlu dikunci bersama kebijakan privasi, status, dan keputusan terbuka BRD.
 
 ## Konvensi yang disarankan
 
@@ -18,6 +18,8 @@ Status: kontrak yang benar-benar terdaftar dan rancangan endpoint lanjutan, 23 O
 | `POST /api/login` | Publik | `email`, `password` | `200 {message,token,token_type,user}`; `401` kredensial salah; `403` akun nonaktif; validasi `422`. Email saja, belum ingat-saya atau rate limit yang terlihat. |
 | `GET /api/user` | Sanctum | Bearer token | `200` user model; `401` tanpa token. Gunakan resource agar field output eksplisit. |
 | `POST /api/logout` | Sanctum | Bearer token | `200 {message}`; menghapus token saat ini. |
+| `GET /api/v1/news` | Publik | `category?: berita|edukasi`, `per_page?: 1..20` | `200` paginator berisi konten published, waktu terbit yang sudah tiba, atribusi sumber, dan URL sumber. Draft, jadwal mendatang, dan konten tanpa sumber tidak ditampilkan. `is_simulation` menandai artikel dengan judul/sumber simulasi. |
+| `GET /api/v1/news/{slug}` | Publik | slug | `200 {data}` detail termasuk konten; `404` jika tidak published/belum waktunya/tidak memiliki atribusi sumber. `author_id` tidak diekspos. |
 | `GET /api/reports` | Sanctum; pemilik | query pagination Laravel | `200` paginator; hanya milik user aktif. Batas page size belum dikendalikan dari controller. |
 | `POST /api/reports` | Sanctum | title, disaster_type, description?, address?, latitude, longitude, occurred_at? | `201 {message,data}`; status awal `pending`/`unhandled`; belum upload media, ID bisnis publik, atau transaction dibutuhkan. |
 | `GET /api/reports/{id}` | Sanctum; pemilik | ID | `200 {data}`; laporan milik user lain tidak ditemukan (`404`). |
@@ -26,7 +28,7 @@ Status: kontrak yang benar-benar terdaftar dan rancangan endpoint lanjutan, 23 O
 
 Endpoint API lama tidak diberi prefix versi dan harus dipertahankan kompatibel sampai klien mobile beralih. Route laporan sekarang seluruhnya perlu Sanctum, sehingga tidak ada daftar laporan publik.
 
-Autentikasi yang saat ini terdaftar juga tidak menyediakan endpoint Home, peringatan, atau berita publik. `GET /api/v1/home` pada tabel rencana di bawah adalah usulan kontrak saja. Jangan menganggapnya tersedia atau menghubungkan klien sebelum sumber data, kewenangan publikasi, dan kebijakan kesegaran disetujui.
+Endpoint Home dan peringatan publik belum tersedia. `GET /api/v1/home` pada tabel rencana di bawah tetap usulan kontrak. Feed berita publik yang sudah ada hanya membaca konten berstatus published, yang tanggal terbitnya sudah tiba, dan memiliki atribusi sumber; alur editorial dan kewenangan penerbitan tetap perlu ditetapkan.
 
 ## Rencana endpoint
 
@@ -45,7 +47,7 @@ Autentikasi yang saat ini terdaftar juga tidak menyediakan endpoint Home, pering
 | SOS | `POST /api/v1/sos`; `GET /api/v1/me/sos`; `GET /api/v1/me/sos/{id}` | Sanctum/pemilik | disaster type, lokasi, accuracy/address, idempotency key | Simpan lalu kembalikan ID dan status server-received. Tidak mengklaim dispatch otomatis. Jenis final [OD-16]. |
 | Operasi SOS | `PATCH /api/v1/operations/sos/{id}/status`, `POST .../assign` | Operator/petugas berwenang | status, reason, assigned officer | SOP, penugasan, pembatalan/eskalasi dan SLA [OD-04/05]; seluruh perubahan diaudit. |
 | Evakuasi | `GET /api/v1/evacuation-posts`, `GET /api/v1/evacuation-posts/{id}` | Publik | search, bbox, status, pagination | Sertakan `capacity_updated_at`; status usang “Belum Diperbarui”; ambang [OD-06]. Jarak dihitung hanya jika titik pencari disediakan. |
-| Berita/edukasi | `GET /api/v1/news`, `GET /api/v1/news/{slug}`, `GET /api/v1/safety-guides` | Publik | kategori, jenis, fase, pagination | Hanya konten published; sumber/atribusi; tidak mengirim draft ke publik. |
+| Berita/edukasi | `GET /api/v1/news`, `GET /api/v1/news/{slug}`, `GET /api/v1/safety-guides` | Publik | kategori, jenis, fase, pagination | News list/detail sudah tersedia dengan filter kategori berita/edukasi. Endpoint `safety-guides` terpisah belum tersedia; tabel `safety_guides` saat ini kosong. Konten publik harus published, sudah masuk waktu terbit, dan punya sumber/atribusi. |
 | Kontak darurat | `GET /api/v1/emergency-contacts` | Publik | region/category | Hanya kontak aktif yang sudah diverifikasi; phone action adalah panggilan perangkat, bukan SOS internal. |
 | Notifikasi | `GET /api/v1/me/notifications`, `PATCH /api/v1/me/notifications/{id}/read`, `POST .../read-all` | Sanctum/pemilik | filter category/read, pagination | Scope selalu pada user terautentikasi; kategori konsisten Peringatan/Informasi/Aktivitas. |
 | Preferensi | `GET/PATCH /api/v1/me/preferences`, saved locations, personal emergency contacts | Sanctum/pemilik | pilihan notifikasi/lokasi/kontak | Dibangun setelah fitur/paritas diputuskan (OD-14/15); jangan kirim notifikasi ke kontak pribadi tanpa persetujuan. |
