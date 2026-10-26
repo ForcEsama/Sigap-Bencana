@@ -56,10 +56,10 @@
                 <a href="/" class="font-medium text-gray-900 transition hover:text-red-600">
                     Beranda
                 </a>
-                <a href="#tentang" class="font-medium text-gray-900 transition hover:text-red-600">
+                <a href="{{ route('about.index') }}" class="font-medium text-gray-900 transition hover:text-red-600">
                     Tentang
                 </a>
-                <a href="#bantuan" class="font-medium text-gray-900 transition hover:text-red-600">
+                <a href="{{ route('help.index') }}" class="font-medium text-gray-900 transition hover:text-red-600">
                     Bantuan
                 </a>
             </nav>
@@ -83,10 +83,10 @@
             <a href="/" class="block rounded-lg px-3 py-2 hover:bg-red-50">
                 Beranda
             </a>
-            <a href="#tentang" class="block rounded-lg px-3 py-2 hover:bg-red-50">
+            <a href="{{ route('about.index') }}" class="block rounded-lg px-3 py-2 hover:bg-red-50">
                 Tentang
             </a>
-            <a href="#bantuan" class="block rounded-lg px-3 py-2 hover:bg-red-50">
+            <a href="{{ route('help.index') }}" class="block rounded-lg px-3 py-2 hover:bg-red-50">
                 Bantuan
             </a>
         </nav>
@@ -130,7 +130,16 @@
                               transition hover:bg-rose-50">
                         Daftar Akun
                     </a>
+
                 </div>
+
+                <p class="mt-4 text-base text-gray-700">
+                    <a href="{{ route('disaster-alerts.index') }}"
+                       class="font-medium transition hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-rose-600"
+                       aria-label="Masuk sebagai Guest untuk melihat informasi publik">
+                        Masuk sebagai <span class=" py-0.5 font-semibold text-red-700">Guest</span>
+                    </a>
+                </p>
             </div>
         </section>
 

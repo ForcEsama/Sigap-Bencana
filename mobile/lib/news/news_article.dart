@@ -3,6 +3,7 @@ class NewsArticle {
     required this.id,
     required this.title,
     required this.slug,
+    this.sourceType = 'local',
     required this.category,
     required this.source,
     required this.sourceUrl,
@@ -13,13 +14,14 @@ class NewsArticle {
     this.content,
   });
 
-  final int id;
+  final String id;
   final String title;
   final String slug;
+  final String sourceType;
   final String category;
   final String source;
   final String sourceUrl;
-  final DateTime publishedAt;
+  final DateTime? publishedAt;
   final bool isSimulation;
   final String? excerpt;
   final String? imageUrl;
@@ -27,13 +29,16 @@ class NewsArticle {
 
   factory NewsArticle.fromJson(Map<String, dynamic> json) {
     return NewsArticle(
-      id: json['id'] as int,
+      id: json['id'].toString(),
       title: json['title'] as String,
       slug: json['slug'] as String,
+      sourceType: json['source_type'] as String? ?? 'local',
       category: json['category'] as String? ?? 'Berita',
       source: json['source'] as String,
       sourceUrl: json['source_url'] as String,
-      publishedAt: DateTime.parse(json['published_at'] as String),
+      publishedAt: json['published_at'] is String
+          ? DateTime.tryParse(json['published_at'] as String)
+          : null,
       isSimulation: json['is_simulation'] as bool? ?? false,
       excerpt: json['excerpt'] as String?,
       imageUrl: json['image_url'] as String?,
@@ -56,6 +61,8 @@ class NewsArticle {
       'Nov',
       'Des',
     ];
+    final publishedAt = this.publishedAt;
+    if (publishedAt == null) return 'Tanggal tidak tersedia';
     final date = publishedAt.toLocal();
 
     return '${date.day} ${months[date.month - 1]} ${date.year}';

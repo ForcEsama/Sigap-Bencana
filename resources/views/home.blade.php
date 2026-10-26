@@ -84,6 +84,28 @@
         </div>
     </nav>
 
+    @auth
+        @if (in_array(auth()->user()->role, ['admin', 'petugas_lapangan'], true))
+            @php($isAdmin = auth()->user()->role === 'admin')
+            <section class="mx-auto mt-4 flex max-w-7xl flex-col gap-3 rounded-xl border border-rose-200 bg-white px-5 py-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:px-8" aria-label="Pintasan dashboard operasional">
+                <div class="flex items-start gap-3">
+                    <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-rose-100 text-lg text-sigap">
+                        <i class="fa-solid {{ $isAdmin ? 'fa-user-shield' : 'fa-clipboard-check' }}" aria-hidden="true"></i>
+                    </span>
+                    <div>
+                        <h2 class="font-semibold">{{ $isAdmin ? 'Dashboard Admin' : 'Dashboard Petugas' }}</h2>
+                        <p class="mt-0.5 text-sm text-gray-600">
+                            {{ $isAdmin ? 'Kelola laporan kejadian dan permintaan bantuan.' : 'Lihat tugas lapangan yang ditugaskan kepada Anda.' }}
+                        </p>
+                    </div>
+                </div>
+                <a href="{{ route('operational.dashboard') }}" class="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-sigap px-5 py-2 text-sm font-medium text-white transition hover:bg-red-800">
+                    Buka Dashboard <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+                </a>
+            </section>
+        @endif
+    @endauth
+
     <!-- Hero -->
     <section class="relative flex h-[1000vh] min-h-[350px] max-h-[700px] items-center overflow-hidden bg-gray-800">
         <div class="absolute inset-0">

@@ -20,6 +20,7 @@ class NotificationController extends Controller
 
         $notifications = $request->user()
             ->notifications()
+            ->withValidSosReference()
             ->when(isset($filters['category']), function ($query) use ($filters): void {
                 $query->where('type', $filters['category']);
             })
@@ -53,7 +54,9 @@ class NotificationController extends Controller
 
     public function markRead(Request $request, int $id): NotificationResource
     {
-        $notification = $request->user()->notifications()->findOrFail($id);
+        $notification = $request->user()->notifications()
+            ->withValidSosReference()
+            ->findOrFail($id);
 
         if ($notification->read_at === null) {
             $notification->forceFill(['read_at' => now()])->save();

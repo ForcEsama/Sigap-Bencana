@@ -68,7 +68,8 @@ class _NewsPageState extends State<NewsPage> {
   void _openArticle(NewsArticle article) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => NewsDetailPage(slug: article.slug),
+        builder: (_) =>
+            NewsDetailPage(slug: article.slug, sourceType: article.sourceType),
       ),
     );
   }
@@ -473,7 +474,7 @@ class _ArticleBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isEducation = article.category.toLowerCase() == 'edukasi';
+    final isEducation = article.category.toLowerCase() != 'berita terkini';
     final isSimulation = article.isSimulation;
     final background = isSimulation
         ? const Color(0xFFFFE7BF)
@@ -483,7 +484,7 @@ class _ArticleBadge extends StatelessWidget {
     final label = isSimulation
         ? 'Simulasi'
         : isEducation
-        ? 'Edukasi'
+        ? article.category
         : 'Berita Terkini';
 
     return Container(

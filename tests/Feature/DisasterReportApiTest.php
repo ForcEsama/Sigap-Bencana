@@ -6,6 +6,7 @@ use App\Models\DisasterReport;
 use App\Models\IncidentHistory;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Auth;
 use Tests\TestCase;
 
 class DisasterReportApiTest extends TestCase
@@ -148,6 +149,17 @@ class DisasterReportApiTest extends TestCase
         ]);
     }
 
+    public function test_field_officer_cannot_create_a_public_incident_report(): void
+    {
+        $officer = User::factory()->create(['role' => 'petugas_lapangan']);
+
+        $this->withToken($this->tokenFor($officer))
+            ->postJson('/api/reports', $this->validPayload())
+            ->assertForbidden();
+
+        $this->assertDatabaseCount('disaster_reports', 0);
+    }
+
     public function test_report_creation_accepts_the_client_supplied_title(): void
     {
         $owner = User::factory()->create();
@@ -166,7 +178,7 @@ class DisasterReportApiTest extends TestCase
     public function test_api_report_responses_include_raw_internal_report_columns(): void
     {
         $owner = User::factory()->create();
-        $officer = User::factory()->create(['role' => 'petugas']);
+        $officer = User::factory()->create(['role' => 'petugas_lapangan']);
         $report = $this->reportFor($owner, [
             'photo_path' => 'disaster-reports/private-photo.jpg',
             'verification_status' => 'verified',
@@ -219,22 +231,48 @@ class DisasterReportApiTest extends TestCase
         $this->assertDatabaseCount('incident_histories', 0);
     }
 
-    public function test_officer_can_verify_pending_report_and_update_handling_after_verification(): void
+    public function test_admin_verifies_and_assigns_report_before_assigned_field_officer_updates_handling(): void
     {
-        $officer = User::factory()->create(['role' => 'petugas', 'is_active' => true]);
+        $admin = User::factory()->create(['role' => 'admin', 'is_active' => true]);
+        $officer = User::factory()->create(['role' => 'petugas_lapangan', 'is_active' => true]);
         $report = $this->reportFor(User::factory()->create());
-        $token = $this->tokenFor($officer);
+        $adminToken = $this->tokenFor($admin);
+        $fieldToken = $this->tokenFor($officer);
 
-        $this->withToken($token)
+        $this->withToken($fieldToken)
+            ->patchJson('/api/reports/'.$report->id.'/verification', [
+                'decision' => 'verified',
+                'notes' => 'Data laporan diperiksa.',
+            ])
+            ->assertForbidden();
+
+        Auth::forgetGuards();
+        $this->withToken($adminToken)
             ->patchJson('/api/reports/'.$report->id.'/verification', [
                 'decision' => 'verified',
                 'notes' => 'Data laporan diperiksa.',
             ])
             ->assertOk()
-            ->assertJsonPath('data.verification_status', 'verified')
-            ->assertJsonPath('data.verified_by', $officer->id);
+            ->assertJsonPath('data.verification_status', 'verified');
 
-        $this->withToken($token)
+        Auth::forgetGuards();
+        $this->withToken($fieldToken)
+            ->patchJson('/api/reports/'.$report->id.'/handling', [
+                'status' => 'in_progress',
+                'notes' => 'Belum ditugaskan.',
+            ])
+            ->assertForbidden();
+
+        Auth::forgetGuards();
+        $this->withToken($adminToken)
+            ->patchJson('/api/v1/operations/reports/'.$report->id.'/assignment', [
+                'assigned_to' => $officer->id,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.assigned_to', $officer->id);
+
+        Auth::forgetGuards();
+        $this->withToken($fieldToken)
             ->patchJson('/api/reports/'.$report->id.'/handling', [
                 'status' => 'in_progress',
                 'notes' => 'Penanganan dimulai.',
@@ -246,12 +284,12 @@ class DisasterReportApiTest extends TestCase
             'id' => $report->id,
             'verification_status' => 'verified',
             'handling_status' => 'in_progress',
-            'verified_by' => $officer->id,
+            'verified_by' => $admin->id,
         ]);
-        $this->assertSame(2, IncidentHistory::query()->where('disaster_report_id', $report->id)->count());
+        $this->assertSame(3, IncidentHistory::query()->where('disaster_report_id', $report->id)->count());
         $this->assertDatabaseHas('incident_histories', [
             'disaster_report_id' => $report->id,
-            'actor_id' => $officer->id,
+            'actor_id' => $admin->id,
             'old_status' => 'pending',
             'new_status' => 'verified',
         ]);
@@ -264,11 +302,17 @@ class DisasterReportApiTest extends TestCase
         $token = $this->tokenFor($officer);
 
         $this->withToken($token)
-            ->patchJson('/api/reports/'.$report->id.'/handling', ['status' => 'resolved'])
+            ->patchJson('/api/reports/'.$report->id.'/handling', [
+                'status' => 'resolved',
+                'notes' => 'Penanganan selesai.',
+            ])
             ->assertStatus(409);
 
         $this->withToken($token)
-            ->patchJson('/api/reports/'.$report->id.'/verification', ['decision' => 'rejected'])
+            ->patchJson('/api/reports/'.$report->id.'/verification', [
+                'decision' => 'rejected',
+                'notes' => 'Informasi laporan perlu diperbaiki.',
+            ])
             ->assertOk();
 
         $this->withToken($token)
@@ -284,7 +328,7 @@ class DisasterReportApiTest extends TestCase
 
     public function test_officer_cannot_submit_unknown_verification_or_handling_statuses(): void
     {
-        $officer = User::factory()->create(['role' => 'petugas', 'is_active' => true]);
+        $officer = User::factory()->create(['role' => 'petugas_lapangan', 'is_active' => true]);
         $report = $this->reportFor(User::factory()->create());
 
         $this->withToken($this->tokenFor($officer))
@@ -306,7 +350,7 @@ class DisasterReportApiTest extends TestCase
 
     public function test_inactive_officer_cannot_change_report_status(): void
     {
-        $officer = User::factory()->create(['role' => 'petugas', 'is_active' => false]);
+        $officer = User::factory()->create(['role' => 'petugas_lapangan', 'is_active' => false]);
         $report = $this->reportFor(User::factory()->create());
 
         $this->withToken($this->tokenFor($officer))

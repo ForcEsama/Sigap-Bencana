@@ -20,11 +20,19 @@
             }
         };
     </script>
+    <style>
+        .nav-item { display: flex; align-items: center; gap: 14px; border-radius: 8px; padding: 10px 12px; color: #191919; }
+        .nav-item.active { color: #c9002c; background: #ffb8bd; }
+        @media (max-width: 1023px) {
+            #sidebar { display: none; }
+            #sidebar.open { display: flex; position: fixed; inset: 0 auto 0 0; z-index: 50; width: min(270px, 86vw); overflow-y: auto; box-shadow: 10px 0 30px #0002; }
+        }
+    </style>
 </head>
 <body class="min-h-screen bg-[#fff8f8] font-poppins text-gray-900">
-    <x-public-nav active="about" />
-
-    <main>
+    <div class="min-h-screen lg:flex">
+        <x-guest-sidebar active="about" />
+    <main class="min-w-0 flex-1">
         <section class="relative overflow-hidden bg-gradient-to-br from-[#ffeced] via-white to-rose-50">
             <div class="mx-auto max-w-7xl px-6 py-14 sm:py-20 md:px-12 lg:px-16">
                 <p class="mb-3 text-sm font-semibold uppercase tracking-[.16em] text-sigap">Tentang Kami</p>
@@ -104,5 +112,11 @@
     </main>
 
     <footer class="border-t border-rose-100 bg-white px-6 py-5 text-center text-xs text-gray-600 sm:text-sm">SIGAP BENCANA &copy; 2026 — Siaga, Tanggap, Selamat.</footer>
+    </div>
+    <script>
+        function toggleMenu() {
+            document.getElementById('sidebar')?.classList.toggle('open');
+        }
+    </script>
 </body>
 </html>

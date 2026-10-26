@@ -19,7 +19,7 @@ class NotificationController extends Controller
         $user = $request->user();
         $storageAvailable = Schema::hasTable('notifications');
         $stored = $storageAvailable
-            ? $user->notifications()->latest('created_at')->limit(100)->get()
+            ? $user->notifications()->withValidSosReference()->latest('created_at')->limit(100)->get()
             : collect();
         $built = $feed->build($user, $stored);
         $items = array_values(array_filter($built['items'], static fn (array $item): bool => $filter === 'all' || $item['category'] === $filter));
@@ -37,7 +37,9 @@ class NotificationController extends Controller
             'notifications' => $paginator,
             'filters' => NotificationFeedService::FILTERS,
             'activeFilter' => $filter,
-            'unreadCount' => $storageAvailable ? $user->notifications()->whereNull('read_at')->count() : 0,
+            'unreadCount' => $storageAvailable
+                ? $user->notifications()->withValidSosReference()->whereNull('read_at')->count()
+                : 0,
             'storageAvailable' => $storageAvailable,
             'feedStates' => $built['feed_states'],
         ]);
@@ -46,7 +48,9 @@ class NotificationController extends Controller
     public function markRead(Request $request, int $notification): RedirectResponse
     {
         abort_unless(Schema::hasTable('notifications'), 503, 'Penyimpanan notifikasi belum tersedia.');
-        $record = $request->user()->notifications()->findOrFail($notification);
+        $record = $request->user()->notifications()
+            ->withValidSosReference()
+            ->findOrFail($notification);
         if ($record->read_at === null) {
             $record->forceFill(['read_at' => now()])->save();
         }
@@ -57,7 +61,10 @@ class NotificationController extends Controller
     public function markAllRead(Request $request): RedirectResponse
     {
         abort_unless(Schema::hasTable('notifications'), 503, 'Penyimpanan notifikasi belum tersedia.');
-        $request->user()->notifications()->whereNull('read_at')->update(['read_at' => now()]);
+        $request->user()->notifications()
+            ->withValidSosReference()
+            ->whereNull('read_at')
+            ->update(['read_at' => now()]);
 
         return $this->returnToFilter($request);
     }

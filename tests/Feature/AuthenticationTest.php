@@ -93,6 +93,37 @@ class AuthenticationTest extends TestCase
         $this->get('/home')->assertOk();
     }
 
+    public function test_remembered_web_login_restores_authentication_without_the_session(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'remembered@example.test',
+            'password' => Hash::make('Password123'),
+        ]);
+
+        $loginResponse = $this->post('/login', [
+            'identity' => $user->email,
+            'password' => 'Password123',
+            'remember' => '1',
+        ])->assertRedirect('/home');
+
+        $user->refresh();
+        $this->assertNotNull($user->getRememberToken());
+
+        $recallerName = Auth::guard('web')->getRecallerName();
+        $loginResponse->assertCookieNotExpired($recallerName);
+        $recallerCookie = $loginResponse->getCookie($recallerName);
+        $this->assertNotNull($recallerCookie);
+
+        $this->flushSession();
+        Auth::forgetGuards();
+
+        $this->withCookie($recallerName, $recallerCookie->getValue())
+            ->get('/')
+            ->assertRedirect('/home');
+
+        $this->assertAuthenticatedAs($user);
+    }
+
     public function test_web_login_rejects_an_incorrect_password(): void
     {
         $user = User::factory()->create([

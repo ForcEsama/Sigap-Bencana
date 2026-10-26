@@ -31,11 +31,18 @@ class _WarningsPageState extends State<WarningsPage> {
       return warnings;
     }
 
-    return warnings
-        .where(
-          (warning) => warning.affectsAdministrativeAddress(locationAddress),
-        )
-        .toList(growable: false);
+    return [...warnings]..sort((first, second) {
+      final firstLocationPriority =
+          first.affectsAdministrativeAddress(locationAddress) ? 1 : 0;
+      final secondLocationPriority =
+          second.affectsAdministrativeAddress(locationAddress) ? 1 : 0;
+      final locationOrder = secondLocationPriority.compareTo(
+        firstLocationPriority,
+      );
+      if (locationOrder != 0) return locationOrder;
+
+      return DisasterWarning.comparePriority(first, second);
+    });
   }
 
   void _reload() {

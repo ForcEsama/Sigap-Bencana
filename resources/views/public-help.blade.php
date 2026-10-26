@@ -22,12 +22,40 @@
     </script>
     <style>
         body { font-family: Poppins, sans-serif; }
+        .nav-item { display: flex; align-items: center; gap: 14px; border-radius: 8px; padding: 10px 12px; color: #191919; }
+        .nav-item.active { color: #c9002c; background: #ffb8bd; }
+        @media (max-width: 1023px) {
+            #sidebar { display: none; }
+            #sidebar.open { display: flex; position: fixed; inset: 0 auto 0 0; z-index: 50; width: min(270px, 86vw); overflow-y: auto; box-shadow: 10px 0 30px #0002; }
+        }
         .faq-chevron { transition: transform .18s ease; }
         details[open] .faq-chevron { transform: rotate(180deg); }
     </style>
 </head>
 <body class="min-h-screen bg-[#fff8f8] font-poppins text-gray-900">
-    <x-public-nav active="help" />
+    @auth
+        <div class="min-h-screen lg:flex">
+            <x-information-sidebar active="help" />
+            <div class="min-w-0 flex-1">
+                <header class="flex items-center justify-between gap-3 bg-white px-5 py-4 shadow-sm lg:hidden">
+                    <div class="flex items-center gap-3">
+                        <button type="button" class="text-xl" onclick="toggleMenu()" aria-label="Buka menu"><i class="fa-solid fa-bars"></i></button>
+                        <span class="font-semibold">Pusat Bantuan</span>
+                    </div>
+                    <span class="text-sm text-gray-600">{{ auth()->user()->name }}</span>
+                </header>
+    @else
+        <div class="min-h-screen lg:flex">
+            <x-guest-sidebar active="help" />
+            <div class="min-w-0 flex-1">
+                <header class="flex items-center justify-between gap-3 bg-white px-5 py-4 shadow-sm lg:hidden">
+                    <div class="flex items-center gap-3">
+                        <button type="button" class="text-xl" onclick="toggleMenu()" aria-label="Buka menu"><i class="fa-solid fa-bars"></i></button>
+                        <span class="font-semibold">Pusat Bantuan</span>
+                    </div>
+                    <a href="{{ route('login') }}" class="text-sm font-medium text-sigap">Masuk</a>
+                </header>
+    @endauth
 
     <main>
         <section class="bg-gradient-to-br from-[#ffeced] via-white to-rose-50">
@@ -75,8 +103,8 @@
             ];
         @endphp
 
-        <section class="mx-auto max-w-5xl px-6 py-10 md:px-12" aria-labelledby="faq-heading">
-            <div class="rounded-2xl bg-white p-5 shadow-sm sm:p-8">
+        <section class="mx-auto grid max-w-7xl items-start gap-4 px-6 py-10 md:px-12 lg:grid-cols-3 lg:px-16" aria-label="Pertanyaan dan informasi bantuan">
+            <div class="rounded-2xl bg-white p-5 shadow-sm sm:p-8 lg:col-span-2">
                 <div class="mb-6">
                     <h2 id="faq-heading" class="text-xl font-bold sm:text-2xl">Pertanyaan yang sering diajukan</h2>
                     <p class="mt-2 text-sm text-gray-600">Pilih kategori atau cari kata di pertanyaan dan jawaban.</p>
@@ -113,9 +141,8 @@
                     @endforeach
                 </div>
             </div>
-        </section>
+        <aside class="space-y-4 lg:col-span-1" aria-label="Informasi tambahan">
 
-        <section class="mx-auto grid max-w-7xl gap-4 px-6 pb-12 md:grid-cols-2 md:px-12 lg:px-16" aria-label="Informasi darurat dan navigasi">
             <div class="rounded-xl border border-rose-100 bg-white p-5 shadow-sm sm:p-7">
                 <div class="flex items-start gap-4">
                     <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[#ffeced] text-lg text-sigap"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i></span>
@@ -124,22 +151,35 @@
                         <p class="mt-2 text-sm leading-6 text-gray-600">Utamakan keselamatan dan hubungi layanan darurat resmi yang berlaku di lokasi Anda. Jangan menunda menghubungi bantuan nyata untuk mengisi aplikasi. Nomor dan cakupan layanan dapat berbeda menurut wilayah.</p>
                     </div>
                 </div>
-                <a href="{{ route('login') }}" class="mt-5 inline-flex min-h-11 items-center justify-center rounded-md bg-sigap px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-red-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sigap focus-visible:ring-offset-2">Masuk untuk melihat Kontak Darurat</a>
+                @guest
+                    <a href="{{ route('login') }}" class="mt-5 inline-flex min-h-11 items-center justify-center rounded-md bg-sigap px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-red-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sigap focus-visible:ring-offset-2">Masuk untuk melihat Kontak Darurat</a>
+                @elseif (auth()->user()->role === 'masyarakat')
+                    <a href="{{ route('emergency-contacts.index') }}" class="mt-5 inline-flex min-h-11 items-center justify-center rounded-md bg-sigap px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-red-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sigap focus-visible:ring-offset-2">Buka Kontak Darurat</a>
+                @endguest
             </div>
             <div class="rounded-xl border border-rose-100 bg-white p-5 shadow-sm sm:p-7">
                 <h2 class="font-semibold">Masih ingin mengenal aplikasi?</h2>
                 <p class="mt-2 text-sm leading-6 text-gray-600">Baca penjelasan fitur, tujuan, dan batasan informasi SIGAP BENCANA sebelum menggunakan aplikasi.</p>
                 <div class="mt-5 flex flex-wrap gap-3">
                     <a href="{{ route('about.index') }}" class="inline-flex min-h-11 items-center justify-center rounded-md border border-sigap px-5 py-2.5 text-sm font-semibold text-sigap transition hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sigap">Tentang SIGAP BENCANA</a>
-                    <a href="{{ route('register') }}" class="inline-flex min-h-11 items-center justify-center rounded-md px-4 py-2.5 text-sm font-semibold text-gray-800 transition hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sigap">Daftar Akun</a>
+                    @guest
+                        <a href="{{ route('register') }}" class="inline-flex min-h-11 items-center justify-center rounded-md px-4 py-2.5 text-sm font-semibold text-gray-800 transition hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sigap">Daftar Akun</a>
+                    @endguest
                 </div>
             </div>
-        </section>
-    </main>
+        </aside>
+    </section>
 
-    <footer class="border-t border-rose-100 bg-white px-6 py-5 text-center text-xs text-gray-600 sm:text-sm">SIGAP BENCANA &copy; 2026 — Siaga, Tanggap, Selamat.</footer>
+    </main>
+<footer class="border-t border-rose-100 bg-white px-6 py-5 text-center text-xs text-gray-600 sm:text-sm">SIGAP BENCANA &copy; 2026 — Siaga, Tanggap, Selamat.</footer>
+            </div>
+        </div>
 
     <script>
+        function toggleMenu() {
+            document.getElementById('sidebar')?.classList.toggle('open');
+        }
+
         (() => {
             const search = document.getElementById('faq-search');
             const category = document.getElementById('faq-category');

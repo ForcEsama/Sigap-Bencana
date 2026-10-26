@@ -6,6 +6,25 @@ import 'package:mobile/sos/sos_request.dart';
 import 'package:mobile/sos/sos_service.dart';
 
 void main() {
+  testWidgets('shows a normal empty state when there are no SOS requests', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ReportListPage(
+          reportService: _ReportWithOneReportService(),
+          sosService: _EmptySosHistoryService(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Laporan Banjir'), findsOneWidget);
+    expect(find.text('Permintaan SOS'), findsOneWidget);
+    expect(find.text('Belum ada permintaan SOS yang dikirim.'), findsOneWidget);
+    expect(find.textContaining('TypeError'), findsNothing);
+  });
+
   testWidgets('shows SOS history even when disaster report loading fails', (
     tester,
   ) async {
@@ -24,6 +43,37 @@ void main() {
     expect(find.text('Gempa Bumi'), findsOneWidget);
     expect(find.text('Laporan belum dapat dimuat.'), findsOneWidget);
   });
+}
+
+class _ReportWithOneReportService extends ReportService {
+  @override
+  Future<ReportPage> fetchReports({int page = 1}) async {
+    return const ReportPage(
+      reports: [
+        {
+          'id': 1,
+          'title': 'Laporan Banjir',
+          'disaster_type': 'banjir',
+          'address': 'Alamat uji',
+          'verification_status': 'pending',
+          'handling_status': 'unhandled',
+          'created_at': '2026-10-26T00:00:00+07:00',
+        },
+      ],
+      currentPage: 1,
+      lastPage: 1,
+    );
+  }
+}
+
+class _EmptySosHistoryService extends SosService {
+  @override
+  Future<List<Map<String, dynamic>>> fetchPendingRequests() async => [];
+
+  @override
+  Future<SosRequestPage> fetchRequests({int page = 1}) async {
+    return SosRequestPage(requests: const [], currentPage: 1, lastPage: 1);
+  }
 }
 
 class _FailingReportService extends ReportService {

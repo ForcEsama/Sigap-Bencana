@@ -2,13 +2,14 @@
 
 namespace App\Http\Controllers\Api;
 
-use Illuminate\Validation\Rule;
-use Illuminate\Support\Facades\DB;
-use App\Models\IncidentHistory;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\DisasterReportResource;
 use App\Models\DisasterReport;
+use App\Services\DisasterOperationsService;
+use App\UserRole;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class DisasterReportController extends Controller
 {
@@ -24,33 +25,19 @@ class DisasterReportController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        abort_unless($request->user()->role === UserRole::Masyarakat->value, 403);
+
         $validated = $request->validate([
             'title' => ['required', 'string', 'max:255'],
-            'disaster_type' => [
-                'required',
-                'string',
-                'in:gempa,banjir,longsor,kebakaran,tsunami,lainnya',
-            ],
+            'disaster_type' => ['required', 'string', 'in:gempa,banjir,longsor,kebakaran,tsunami,lainnya'],
             'description' => ['nullable', 'string'],
             'address' => ['nullable', 'string'],
-            'latitude' => [
-                'required',
-                'numeric',
-                'between:-90,90',
-            ],
-            'longitude' => [
-                'required',
-                'numeric',
-                'between:-180,180',
-            ],
-            'occurred_at' => [
-                'nullable',
-                'date',
-                'before_or_equal:now',
-            ],
+            'latitude' => ['required', 'numeric', 'between:-90,90'],
+            'longitude' => ['required', 'numeric', 'between:-180,180'],
+            'occurred_at' => ['nullable', 'date', 'before_or_equal:now'],
         ]);
 
-        $report = DisasterReport::create([
+        $report = DisasterReport::query()->create([
             ...$validated,
             'user_id' => $request->user()->id,
             'verification_status' => 'pending',
@@ -69,109 +56,72 @@ class DisasterReportController extends Controller
             ->where('user_id', $request->user()->id)
             ->findOrFail($id);
 
-        return response()->json([
-            'data' => $report,
-        ]);
+        return response()->json(['data' => $report]);
     }
 
-    
-    public function verify(Request $request, int $id): JsonResponse
+    public function verify(Request $request, int $id, DisasterOperationsService $operations): JsonResponse
     {
         $validated = $request->validate([
-            'decision' => [
-                'required',
-                Rule::in(['verified', 'rejected']),
-            ],
-            'notes' => ['nullable', 'string', 'max:2000'],
+            'decision' => ['required', Rule::in(['verified', 'rejected'])],
+            'notes' => [Rule::requiredIf($request->input('decision') === 'rejected'), 'nullable', 'string', 'max:2000'],
         ]);
 
-        $report = DB::transaction(function () use (
-            $request,
+        $report = $operations->verifyReport(
+            $request->user(),
             $id,
-            $validated
-        ) {
-            $report = DisasterReport::query()
-                ->lockForUpdate()
-                ->findOrFail($id);
-
-            if ($report->verification_status !== 'pending') {
-                abort(409, 'Laporan sudah pernah diverifikasi.');
-            }
-
-            $oldStatus = $report->verification_status;
-
-            $report->verification_status = $validated['decision'];
-            $report->verified_by = $request->user()->id;
-            $report->verified_at = now();
-            $report->save();
-
-            IncidentHistory::create([
-                'disaster_report_id' => $report->id,
-                'sos_request_id' => null,
-                'actor_id' => $request->user()->id,
-                'old_status' => $oldStatus,
-                'new_status' => $validated['decision'],
-                'notes' => $validated['notes'] ?? null,
-            ]);
-
-            return $report;
-        });
+            $validated['decision'],
+            $validated['notes'] ?? null,
+        );
 
         return response()->json([
             'message' => 'Status verifikasi laporan berhasil diperbarui.',
-            'data' => $report,
+            'data' => new DisasterReportResource($report),
+        ]);
+    }
+
+    public function assign(Request $request, int $id, DisasterOperationsService $operations): JsonResponse
+    {
+        $validated = $request->validate([
+            'assigned_to' => [
+                'required',
+                'integer',
+                Rule::exists('users', 'id')->where('role', 'petugas_lapangan')->where('is_active', true),
+            ],
+        ]);
+
+        $report = $operations->assignReport($request->user(), $id, (int) $validated['assigned_to']);
+
+        return response()->json([
+            'message' => 'Laporan berhasil ditugaskan kepada petugas lapangan.',
+            'data' => new DisasterReportResource($report),
         ]);
     }
 
     public function updateHandlingStatus(
         Request $request,
-        int $id
+        int $id,
+        DisasterOperationsService $operations,
     ): JsonResponse {
         $validated = $request->validate([
-            'status' => [
-                'required',
-                Rule::in(['unhandled', 'in_progress', 'resolved']),
+            'status' => ['required', Rule::in(['in_progress', 'resolved'])],
+            'notes' => [
+                Rule::requiredIf($request->input('status') === 'resolved'),
+                'nullable',
+                'string',
+                'max:2000',
             ],
-            'notes' => ['nullable', 'string', 'max:2000'],
         ]);
 
-        $report = DB::transaction(function () use (
-            $request,
+        $report = $operations->updateReportHandling(
+            $request->user(),
             $id,
-            $validated
-        ) {
-            $report = DisasterReport::query()
-                ->lockForUpdate()
-                ->findOrFail($id);
-
-            if ($report->verification_status !== 'verified') {
-                abort(409, 'Verifikasi laporan sebelum mengubah penanganan.');
-            }
-
-            $oldStatus = $report->handling_status;
-            $newStatus = $validated['status'];
-
-            $report->handling_status = $newStatus;
-            $report->save();
-
-            if ($oldStatus !== $newStatus) {
-                IncidentHistory::create([
-                    'disaster_report_id' => $report->id,
-                    'sos_request_id' => null,
-                    'actor_id' => $request->user()->id,
-                    'old_status' => $oldStatus,
-                    'new_status' => $newStatus,
-                    'notes' => $validated['notes'] ?? null,
-                ]);
-            }
-
-            return $report;
-        });
+            $validated['status'],
+            $validated['notes'] ?? null,
+        );
 
         return response()->json([
-            'message' => 'Status penanganan berhasil diperbarui.',
-            'data' => $report,
+            'message' => 'Status penanganan laporan berhasil diperbarui.',
+            'data' => new DisasterReportResource($report),
         ]);
     }
-
 }

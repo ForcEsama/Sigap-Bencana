@@ -13,19 +13,23 @@ class RiskMapTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_guest_is_redirected_from_the_risk_map_to_login(): void
+    public function test_guest_sees_only_the_basemap_and_official_inarisk_layer(): void
     {
         $this->get(route('risk-map.index'))
-            ->assertRedirect(route('login'));
+            ->assertOk()
+            ->assertSee('OpenStreetMap')
+            ->assertSee('Legenda resmi')
+            ->assertDontSee('Zona risiko lokal SIGAP BENCANA');
     }
 
-    public function test_authenticated_user_sees_the_empty_risk_zone_state(): void
+    public function test_authenticated_user_sees_only_the_official_inarisk_map(): void
     {
         $this->actingAs(User::factory()->create())
             ->get(route('risk-map.index'))
             ->assertOk()
             ->assertSee('Peta Risiko')
-            ->assertSee('Data zona risiko lokal belum tersedia');
+            ->assertSee('Legenda resmi')
+            ->assertDontSee('Zona risiko lokal SIGAP BENCANA');
     }
 
     public function test_incomplete_risk_zone_schema_does_not_break_the_empty_state(): void
@@ -51,10 +55,11 @@ class RiskMapTest extends TestCase
         $this->actingAs(User::factory()->create())
             ->get(route('risk-map.index'))
             ->assertOk()
-            ->assertSee('Data zona risiko lokal belum tersedia');
+            ->assertSee('Legenda resmi')
+            ->assertDontSee('Data zona risiko lokal belum tersedia');
     }
 
-    public function test_authenticated_user_sees_active_risk_zone_details(): void
+    public function test_local_risk_zones_are_not_drawn_over_the_official_map(): void
     {
         $user = User::factory()->create();
 
@@ -74,8 +79,9 @@ class RiskMapTest extends TestCase
         $this->actingAs($user)
             ->get(route('risk-map.index'))
             ->assertOk()
-            ->assertSee('Zona Risiko Uji')
-            ->assertSee('Kecamatan Uji')
-            ->assertSee('Sumber Uji');
+            ->assertDontSee('Zona Risiko Uji')
+            ->assertDontSee('Kecamatan Uji')
+            ->assertDontSee('Sumber Uji')
+            ->assertDontSee('Zona risiko lokal SIGAP BENCANA');
     }
 }

@@ -1,6 +1,8 @@
 package com.example.mobile
 
 import android.Manifest
+import android.content.Intent
+import android.net.Uri
 import android.content.pm.PackageManager
 import android.location.Geocoder
 import android.location.Location
@@ -45,6 +47,10 @@ class MainActivity : FlutterActivity() {
             "sigap/sos-map",
             SosMapViewFactory(),
         )
+        flutterEngine.platformViewsController.registry.registerViewFactory(
+            "sigap/evacuation-map",
+            EvacuationMapViewFactory(),
+        )
         MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             "sigap/location",
@@ -54,6 +60,40 @@ class MainActivity : FlutterActivity() {
             } else {
                 result.notImplemented()
             }
+        }
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "sigap/emergency-contacts",
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "dial" -> {
+                    val phone = call.argument<String>("phone")
+                    if (phone.isNullOrBlank() || !phone.matches(Regex("\\+?[0-9]{3,30}"))) {
+                        result.error("invalidPhone", "Nomor telepon tidak valid.", null)
+                    } else {
+                        openExternalIntent(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone")), result)
+                    }
+                }
+                "openWebsite" -> {
+                    val url = call.argument<String>("url")
+                    val uri = url?.let { Uri.parse(it) }
+                    if (uri == null || uri.scheme !in listOf("http", "https") || uri.host.isNullOrBlank()) {
+                        result.error("invalidUrl", "Alamat situs tidak valid.", null)
+                    } else {
+                        openExternalIntent(Intent(Intent.ACTION_VIEW, uri), result)
+                    }
+                }
+                else -> result.notImplemented()
+            }
+        }
+    }
+
+    private fun openExternalIntent(intent: Intent, result: MethodChannel.Result) {
+        try {
+            startActivity(intent)
+            result.success(null)
+        } catch (_: Exception) {
+            result.error("activityUnavailable", "Aplikasi terkait tidak dapat dibuka.", null)
         }
     }
 

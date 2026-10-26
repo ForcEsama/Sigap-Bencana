@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
@@ -43,6 +44,18 @@ class User extends Authenticatable
         return $this->hasMany(
             DisasterReport::class,
             'verified_by'
+        );
+    }
+
+    public function assignedDisasterReports(): HasManyThrough
+    {
+        return $this->hasManyThrough(
+            DisasterReport::class,
+            DisasterReportAssignment::class,
+            'assigned_to',
+            'id',
+            'id',
+            'disaster_report_id',
         );
     }
 

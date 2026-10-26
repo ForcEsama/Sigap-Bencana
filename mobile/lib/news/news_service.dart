@@ -47,19 +47,24 @@ class NewsService {
       .map(NewsArticle.fromJson)
       .toList(growable: false);
 
-  Future<NewsArticle> fetchArticle(String slug) async {
+  Future<NewsArticle> fetchArticle(
+    String slug, {
+    String sourceType = 'local',
+  }) async {
     lastReadFromCache = false;
     try {
-      final uri = Uri.parse(ApiConfig.newsArticle(slug));
+      final uri = Uri.parse(ApiConfig.newsArticle(sourceType, slug));
       final record = _decodeResponse(await _get(uri))['data'];
       if (record is! Map<String, dynamic>) {
         throw const NewsApiException('Format detail berita tidak dikenali.');
       }
 
-      await OfflineCache.write('news_article_$slug', record);
+      await OfflineCache.write('news_article_${sourceType}_$slug', record);
       return NewsArticle.fromJson(record);
     } catch (_) {
-      final record = await OfflineCache.read('news_article_$slug');
+      final record = await OfflineCache.read(
+        'news_article_${sourceType}_$slug',
+      );
       if (record is! Map<String, dynamic>) rethrow;
 
       lastReadFromCache = true;

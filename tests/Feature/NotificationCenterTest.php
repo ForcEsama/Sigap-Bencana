@@ -2,11 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Models\SosRequest;
 use App\Models\User;
 use App\Services\BmkgEarthquakeService;
 use App\Services\BmkgNowcastService;
 use App\Services\BnpbNewsService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
@@ -206,6 +208,40 @@ class NotificationCenterTest extends TestCase
             ->assertOk()
             ->assertSee('Permintaan SOS tercatat di aplikasi')
             ->assertSee('tidak menyatakan petugas telah menerima permintaan.');
+    }
+
+    public function test_web_notification_feed_hides_sos_activity_when_its_request_is_deleted(): void
+    {
+        $user = User::factory()->create();
+        $sosRequest = SosRequest::query()->create([
+            'user_id' => $user->id,
+            'disaster_type' => 'gempa',
+            'latitude' => '-0.9500000',
+            'longitude' => '100.3500000',
+            'urgency_level' => 'high',
+            'status' => 'sent',
+            'requested_at' => now(),
+        ]);
+        $user->notifications()->create([
+            'title' => 'Permintaan SOS tercatat di aplikasi',
+            'message' => 'Permintaan SOS #'.$sosRequest->id.' berhasil dicatat.',
+            'type' => 'activity',
+            'related_type' => 'sos_request',
+            'related_id' => $sosRequest->id,
+        ]);
+        $user->notifications()->create([
+            'title' => 'Aktivitas yang masih berlaku',
+            'message' => 'Tetap terlihat.',
+            'type' => 'activity',
+        ]);
+
+        DB::table('sos_requests')->where('id', $sosRequest->id)->delete();
+
+        $this->actingAs($user)
+            ->get(route('notifications.index', ['filter' => 'activity']))
+            ->assertOk()
+            ->assertSee('Aktivitas yang masih berlaku')
+            ->assertDontSee('Permintaan SOS tercatat di aplikasi');
     }
 
     public function test_source_urls_are_rendered_as_escaped_links(): void

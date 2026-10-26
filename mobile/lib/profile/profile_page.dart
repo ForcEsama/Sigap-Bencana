@@ -7,6 +7,7 @@ import '../sos/sos_activation_page.dart';
 import '../widgets/app_bottom_navigation.dart';
 import 'profile_tools_pages.dart';
 import 'profile_service.dart';
+import 'emergency_contact_directory_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -215,6 +216,15 @@ class _ProfilePageState extends State<ProfilePage> {
                     _profileItem(
                       icon: Icons.call,
                       color: const Color(0xFFFF1744),
+                      title: 'Kontak Darurat',
+                      subtitle: 'Lihat layanan darurat yang tersedia',
+                      onTap: () => _openProfilePage(
+                        const EmergencyContactDirectoryPage(),
+                      ),
+                    ),
+                    _profileItem(
+                      icon: Icons.contact_phone_outlined,
+                      color: const Color(0xFFFF777F),
                       title: 'Kontak Darurat Saya',
                       subtitle: 'Kelola kontak darurat pribadi',
                       onTap: () =>

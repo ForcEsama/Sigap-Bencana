@@ -75,12 +75,16 @@ class SosService {
         throw const SosApiException(500, 'Respons riwayat SOS tidak valid.');
       }
 
-      await OfflineCache.write(
-        'sos_page_$page',
-        response,
-        accountScoped: true,
-        maxCharacters: 250000,
-      );
+      try {
+        await OfflineCache.write(
+          'sos_page_$page',
+          response,
+          accountScoped: true,
+          maxCharacters: 250000,
+        );
+      } catch (error, stackTrace) {
+        debugPrint('Gagal menyimpan cache riwayat SOS: $error\n$stackTrace');
+      }
       return _sosRequestPageFrom(response, page);
     } on SosApiException {
       final cached = await OfflineCache.read(
@@ -118,7 +122,7 @@ class SosService {
 
       throw SosApiException(
         500,
-        'Respons riwayat SOS tidak dapat diproses (${error.runtimeType}).',
+        'Riwayat SOS belum dapat dimuat. Tarik halaman ke bawah untuk mencoba lagi.',
       );
     }
   }
@@ -157,8 +161,10 @@ class SosService {
   }
 
   SosRequestPage _sosRequestPageFrom(Map<String, dynamic> response, int page) {
-    final rows = response['data'];
-    final meta = response['meta'];
+    final rawRows = response['data'];
+    final rows = rawRows is List ? rawRows : const <Object?>[];
+    final rawMeta = response['meta'];
+    final meta = rawMeta is Map<String, dynamic> ? rawMeta : null;
     return SosRequestPage(
       requests: rows
           .whereType<Map<String, dynamic>>()

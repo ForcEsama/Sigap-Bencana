@@ -2,7 +2,7 @@
     $notificationUnreadCount = 0;
     try {
         if (\Illuminate\Support\Facades\Schema::hasTable('notifications') && auth()->check()) {
-            $notificationUnreadCount = auth()->user()->notifications()->whereNull('read_at')->count();
+            $notificationUnreadCount = auth()->user()->notifications()->withValidSosReference()->whereNull('read_at')->count();
         }
     } catch (\Throwable) {
         $notificationUnreadCount = 0;

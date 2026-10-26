@@ -114,7 +114,7 @@
                 <button
                     type="button"
                     class="flex min-h-[36px] w-full items-center justify-center gap-3 rounded border border-gray-400 text-xs font-medium transition hover:bg-gray-50">
-                    <i class="fa-brands fa-google text-base text-blue-500"></i>
+                    <img src="{{ asset('images/Google_Favicon_2025.svg') }}" alt="" aria-hidden="true" class="h-4 w-4">
                     Masuk dengan Google
                 </button>
 

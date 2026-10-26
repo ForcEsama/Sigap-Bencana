@@ -45,8 +45,9 @@
         }
     </style>
 </head>
-<body class="min-h-screen bg-blush text-[#181818]">
+<body class="min-h-screen bg-[#FFECED] text-[#181818]">
 <div class="min-h-screen lg:flex">
+    @auth
     <aside id="sidebar" class="hidden w-[238px] shrink-0 flex-col bg-white px-5 py-6 lg:flex">
         <div class="mb-7 flex items-center justify-between px-2">
             <a href="{{ route('home') }}"><img src="{{ asset('images/SigapBencanaLogo.png') }}" alt="SIGAP BENCANA" class="h-12 w-auto"></a>
@@ -54,6 +55,7 @@
         </div>
         <nav class="flex flex-col gap-1 text-[15px]" aria-label="Navigasi utama">
             <a class="nav-item" href="{{ route('home') }}"><i class="fa-solid fa-house w-5 text-center"></i>Home</a>
+            @include('components.operational-dashboard-link')
             <a class="nav-item active" href="{{ route('disaster-alerts.index') }}" aria-current="page"><i class="fa-solid fa-triangle-exclamation w-5 text-center"></i>Peringatan Bencana</a>
             <a class="nav-item" href="{{ route('risk-map.index') }}"><i class="fa-solid fa-map-location-dot w-5 text-center"></i>Peta Risiko</a>
             <a class="nav-item" href="{{ route('reports.create') }}"><i class="fa-solid fa-file-circle-plus w-5 text-center"></i>Lapor Kejadian</a>
@@ -63,6 +65,7 @@
             <a class="nav-item" href="{{ route('news-education.index') }}"><i class="fa-solid fa-newspaper w-5 text-center"></i>Berita &amp; Edukasi</a>
             <a class="nav-item" href="{{ route('emergency-contacts.index') }}"><i class="fa-solid fa-phone w-5 text-center"></i>Kontak Darurat</a>
             <a class="nav-item" href="{{ route('about.index') }}"><i class="fa-solid fa-circle-exclamation w-5 text-center"></i>Tentang</a>
+            <a class="nav-item" href="{{ route('help.index') }}"><i class="fa-regular fa-circle-question w-5 text-center"></i>Bantuan</a>
             <a class="nav-item" href="{{ route('profile.edit') }}"><i class="fa-regular fa-user w-5 text-center"></i>Profil</a>
             <form action="{{ route('logout') }}" method="POST" class="mt-1">
                 @csrf
@@ -70,6 +73,9 @@
             </form>
         </nav>
     </aside>
+@else
+    <x-guest-sidebar active="warnings" />
+@endauth
 
     <main class="min-w-0 flex-1 px-4 py-5 sm:px-7 lg:px-10 lg:py-7">
         <header class="mb-6 flex items-start justify-between gap-4">
@@ -81,9 +87,9 @@
                 </div>
             </div>
             <div class="flex shrink-0 items-center gap-2 pt-1 sm:gap-3">
-                <x-notification-bell />
-                <span class="flex h-8 w-8 items-center justify-center rounded-full bg-gray-500 text-sm text-white">{{ strtoupper(substr(auth()->user()->name, 0, 1)) }}</span>
-                <span class="hidden sm:inline">{{ auth()->user()->name }}</span>
+                @auth <x-notification-bell /> @endauth
+                @auth <span class="flex h-8 w-8 items-center justify-center rounded-full bg-gray-500 text-sm text-white">{{ strtoupper(substr(auth()->user()->name, 0, 1)) }}</span> @endauth
+                @auth <span class="hidden sm:inline">{{ auth()->user()->name }}</span> @endauth
             </div>
         </header>
 
@@ -111,7 +117,7 @@
                     @endforeach
                 </select>
             </label>
-            <button type="submit" class="rounded-md bg-sigap px-4 py-2.5 text-sm font-medium text-white hover:bg-red-700">Terapkan</button>
+            <button type="submit" class="rounded-md bg-sigap px-4 py-2.5 text-sm font-medium text-white bg-red-700 hover:bg-red-800">Terapkan</button>
         </form>
 
         @if ($cards === [])
@@ -140,21 +146,21 @@
                         </div>
                         <div class="alert-card__body">
                             <div class="alert-card__copy">
-                                <span class="inline-block max-w-full rounded bg-rose-100 px-2 py-1 text-[11px] font-medium text-rose-800 sm:text-xs">{{ $card['type_label'] }}</span>
-                                <h2 class="alert-card__title mt-1 text-sm font-semibold leading-snug sm:text-base">{{ $card['title'] }}</h2>
+                                <span class="inline-block max-w-full rounded bg-rose-100 px-2 py-1 text-[11px] font-medium text-rose-800 sm:text-sm">{{ $card['type_label'] }}</span>
+                                <h2 class="alert-card__title mt-1 text-base font-semibold leading-snug sm:text-xl">{{ $card['title'] }}</h2>
                                 @if ($card['region'] && $card['kind'] === 'warning')
-                                    <p class="mt-1 text-[11px] text-gray-600 sm:text-xs">Wilayah: {{ $card['region'] }}</p>
+                                    <p class="mt-1 text-[14px] text-gray-600 sm:text-sm">Wilayah: {{ $card['region'] }}</p>
                                 @endif
                                 @if ($card['summary'])
-                                    <p class="alert-card__summary mt-1 line-clamp-2 text-xs leading-relaxed text-gray-600">{{ $card['summary'] }}</p>
+                                    <p class="alert-card__summary mt-1 line-clamp-2 text-base leading-relaxed text-gray-600">{{ $card['summary'] }}</p>
                                 @endif
                                 @if ($card['details'])
-                                    <p class="mt-1 line-clamp-1 break-words text-[11px] text-gray-600">{{ implode(' · ', $card['details']) }}</p>
+                                    <p class="mt-1 line-clamp-1 break-words text-[14px] text-gray-600">{{ implode(' · ', $card['details']) }}</p>
                                 @endif
                                 @if ($card['starts_at'] && $card['expires_at'])
-                                    <p class="mt-1 text-[11px] text-gray-600">Berlaku {{ \Carbon\Carbon::parse($card['starts_at'])->setTimezone('Asia/Jakarta')->locale('id')->translatedFormat('d M Y H:i') }}–{{ \Carbon\Carbon::parse($card['expires_at'])->setTimezone('Asia/Jakarta')->locale('id')->translatedFormat('d M Y H:i') }} WIB</p>
+                                    <p class="mt-1 text-[14px] text-gray-600">Berlaku {{ \Carbon\Carbon::parse($card['starts_at'])->setTimezone('Asia/Jakarta')->locale('id')->translatedFormat('d M Y H:i') }}–{{ \Carbon\Carbon::parse($card['expires_at'])->setTimezone('Asia/Jakarta')->locale('id')->translatedFormat('d M Y H:i') }} WIB</p>
                                 @endif
-                                <p class="alert-card__metadata mt-2 text-[10px] text-gray-500 sm:text-[11px]">
+                                <p class="alert-card__metadata mt-2 text-[12px] text-gray-500 sm:text-[14px]">
                                     @if ($card['published_at'])
                                         <i class="fa-regular fa-clock mr-1" aria-hidden="true"></i>{{ $card['time_label'] }} {{ \Carbon\Carbon::parse($card['published_at'])->setTimezone('Asia/Jakarta')->locale('id')->translatedFormat('d M Y H:i') }} WIB
                                     @else
@@ -172,7 +178,7 @@
                                         <span class="rounded bg-emerald-100 px-2 py-1 text-[10px] font-medium text-emerald-800">{{ $card['handling_status'] }}</span>
                                     @endif
                                 </div>
-                                <a href="{{ $card['source_url'] }}" target="_blank" rel="noopener noreferrer" class="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-sigap hover:underline">Lihat Detail <span aria-hidden="true">→</span></a>
+                                <a href="{{ $card['source_url'] }}" target="_blank" rel="noopener noreferrer" class="inline-flex shrink-0 items-center gap-1 text-base font-medium text-red-700 hover:underline">Lihat Detail <span aria-hidden="true">→</span></a>
                             </aside>
                         </div>
                     </article>

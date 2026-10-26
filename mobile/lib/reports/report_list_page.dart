@@ -158,7 +158,7 @@ class _ReportListPageState extends State<ReportListPage> {
     } catch (error) {
       debugPrint('Gagal memuat riwayat SOS: $error');
       return _SosLoadResult(
-        error: 'Riwayat SOS gagal diproses (${error.runtimeType}).',
+        error: 'Riwayat SOS belum dapat dimuat. Tarik halaman ke bawah untuk mencoba lagi.',
       );
     }
   }
@@ -341,11 +341,11 @@ class _ReportListPageState extends State<ReportListPage> {
             Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: Text(
-                'Riwayat SOS belum dapat dimuat: $_sosError',
-                style: const TextStyle(color: red, fontSize: 12),
+                _sosError!,
+                style: const TextStyle(color: Color(0xFF77717A), fontSize: 12),
               ),
             ),
-          if (_sosRequests.isNotEmpty) ...[
+          if (_sosRequests.isNotEmpty || _sosError == null) ...[
             const Padding(
               padding: EdgeInsets.only(bottom: 9),
               child: Text(
@@ -353,7 +353,16 @@ class _ReportListPageState extends State<ReportListPage> {
                 style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
               ),
             ),
-            ..._sosRequests.map(_sosCard),
+            if (_sosRequests.isNotEmpty)
+              ..._sosRequests.map(_sosCard)
+            else
+              const Padding(
+                padding: EdgeInsets.only(bottom: 14),
+                child: Text(
+                  'Belum ada permintaan SOS yang dikirim.',
+                  style: TextStyle(color: Color(0xFF77717A), fontSize: 13),
+                ),
+              ),
           ],
           if (_pendingSosRequests.isNotEmpty) ...[
             const Padding(

@@ -98,6 +98,7 @@ class DisasterWarning {
     return value
         .split(RegExp(r'[,;|]'))
         .map((area) => area.toLowerCase().replaceAll('.', '').trim())
+        .map((area) => area.replaceAll(RegExp(r'\b\d{4,6}\b'), ' '))
         .map(
           (area) => area.replaceFirst(
             RegExp(

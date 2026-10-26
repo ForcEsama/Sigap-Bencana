@@ -14,15 +14,15 @@ class EnsureOfficer
     ): Response {
         $user = $request->user();
 
-        if (!$user || !$user->is_active) {
+        if (! $user || ! $user->is_active) {
             return response()->json([
                 'message' => 'Akun tidak aktif atau belum login.',
             ], 403);
         }
 
-        if (!in_array($user->role, ['petugas', 'admin'], true)) {
+        if (! in_array($user->role, ['petugas_lapangan', 'admin'], true)) {
             return response()->json([
-                'message' => 'Akses hanya untuk petugas atau admin.',
+                'message' => 'Akses hanya untuk petugas lapangan atau admin.',
             ], 403);
         }
 

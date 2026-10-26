@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\News;
 use App\Models\User;
+use App\Services\NewsEducationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -139,6 +140,61 @@ class NewsApiTest extends TestCase
         $this->getJson('/api/v1/news')
             ->assertOk()
             ->assertJsonPath('data.0.image_url', asset('images/news/banjir1.jpg'));
+    }
+
+    public function test_mobile_feed_uses_the_same_bnpb_and_bmkg_content_as_the_website(): void
+    {
+        $this->mock(NewsEducationService::class, function ($mock): void {
+            $mock->shouldReceive('items')->twice()->andReturn([
+                $this->feedItem('bnpb', 'news', 'Berita Terkini', 'Banjir terkini'),
+                $this->feedItem('bmkg', 'education', 'Edukasi', 'Kenali gempa'),
+            ]);
+        });
+
+        $this->getJson('/api/v1/mobile/news?category=berita')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.source_type', 'bnpb')
+            ->assertJsonPath('data.0.category', 'Berita Terkini');
+
+        $this->getJson('/api/v1/mobile/news?category=edukasi')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.source_type', 'bmkg')
+            ->assertJsonPath('data.0.category', 'Edukasi');
+    }
+
+    public function test_mobile_external_article_detail_returns_content_and_source_attribution(): void
+    {
+        $item = $this->feedItem('bnpb', 'news', 'Berita Terkini', 'Banjir terkini');
+        $this->mock(NewsEducationService::class, function ($mock) use ($item): void {
+            $mock->shouldReceive('findExternal')->once()->with('bnpb', $item['id'])->andReturn($item);
+        });
+
+        $this->getJson('/api/v1/mobile/news/bnpb/'.$item['id'])
+            ->assertOk()
+            ->assertJsonPath('data.content', $item['summary'])
+            ->assertJsonPath('data.source', 'BNPB');
+    }
+
+    /** @return array<string, mixed> */
+    private function feedItem(string $sourceType, string $categoryKey, string $category, string $title): array
+    {
+        $id = str_repeat('a', 64);
+
+        return [
+            'id' => $id,
+            'source_type' => $sourceType,
+            'category_key' => $categoryKey,
+            'category' => $category,
+            'title' => $title,
+            'summary' => 'Ringkasan resmi.',
+            'published_at' => now()->toIso8601String(),
+            'source' => $sourceType === 'bnpb' ? 'BNPB' : 'BMKG',
+            'source_url' => 'https://www.'.$sourceType.'.go.id/sumber',
+            'image_url' => 'https://images.example.test/article.jpg',
+            'content' => null,
+        ];
     }
 
     public function test_public_feed_preserves_an_allowlisted_bmkg_shakemap_url(): void
