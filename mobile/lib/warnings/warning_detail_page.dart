@@ -25,7 +25,10 @@ class _WarningDetailPageState extends State<WarningDetailPage> {
   Future<DisasterWarning> _loadWarning() {
     final cached = widget.initialWarning;
     if (cached != null) {
-      if (cached.expiresAt.isAfter(DateTime.now())) return Future.value(cached);
+      if (cached.isRecordedIncident ||
+          (cached.expiresAt?.isAfter(DateTime.now()) ?? false)) {
+        return Future.value(cached);
+      }
       return Future.error(
         const WarningApiException('Masa berlaku peringatan telah berakhir.'),
       );
@@ -39,7 +42,7 @@ class _WarningDetailPageState extends State<WarningDetailPage> {
       backgroundColor: const Color(0xFFFFEEF1),
       appBar: AppBar(
         backgroundColor: const Color(0xFFFFEEF1),
-        title: const Text('Detail Peringatan'),
+        title: const Text('Detail Informasi Bencana'),
       ),
       body: FutureBuilder<DisasterWarning>(
         future: _warning,
@@ -70,11 +73,16 @@ class _WarningDetailPageState extends State<WarningDetailPage> {
               const SizedBox(height: 16),
               _detail('Wilayah', warning.affectedArea),
               if (warning.urgency != null) _detail('Urgensi', warning.urgency!),
-              _detail('Severity dari sumber', warning.severity),
-              _detail('Diterbitkan', warning.formattedPublishedAt),
-              if (warning.startsAt != null)
+              if (warning.isOfficialWarning)
+                _detail('Severity dari sumber', warning.severity),
+              _detail(
+                warning.isOfficialWarning ? 'Diterbitkan' : 'Tanggal kejadian',
+                warning.formattedPublishedAt,
+              ),
+              if (warning.isOfficialWarning && warning.startsAt != null)
                 _detail('Mulai berlaku', warning.formattedStartsAt),
-              _detail('Berlaku sampai', warning.formattedExpiresAt),
+              if (warning.isOfficialWarning)
+                _detail('Berlaku sampai', warning.formattedExpiresAt),
               _detail('Sumber', warning.source),
               _detail('Tautan sumber', warning.sourceUrl),
               const SizedBox(height: 12),

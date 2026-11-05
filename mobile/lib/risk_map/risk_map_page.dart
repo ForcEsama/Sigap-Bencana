@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import '../guest_access_page.dart';
 import '../notifications/notification_page.dart';
 import '../profile/profile_page.dart';
 import '../sos/sos_activation_page.dart';
@@ -15,32 +16,6 @@ class RiskMapPage extends StatelessWidget {
   static const Color _pink = Color(0xFFFFEEF1);
 
   void _selectDestination(BuildContext context, AppDestination destination) {
-    if (guestMode &&
-        destination != AppDestination.home &&
-        destination != AppDestination.map) {
-      showDialog<void>(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          title: const Text('Masuk untuk melanjutkan'),
-          content: const Text('Fitur ini memerlukan akun SIGAP BENCANA.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Nanti'),
-            ),
-            FilledButton(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-                Navigator.of(context).pushNamed('/login');
-              },
-              child: const Text('Masuk'),
-            ),
-          ],
-        ),
-      );
-      return;
-    }
-
     switch (destination) {
       case AppDestination.home:
         Navigator.of(context).popUntil((route) => route.isFirst);
@@ -48,20 +23,64 @@ class RiskMapPage extends StatelessWidget {
       case AppDestination.map:
         break;
       case AppDestination.profile:
+        if (guestMode) {
+          _openGuestSection(context, destination);
+          break;
+        }
         Navigator.of(context)
             .push(MaterialPageRoute<void>(builder: (_) => const ProfilePage()));
         break;
       case AppDestination.sos:
+        if (guestMode) {
+          _openGuestSection(context, destination);
+          break;
+        }
         Navigator.of(context).push(
           MaterialPageRoute<void>(builder: (_) => const SosActivationPage()),
         );
         break;
       case AppDestination.notifications:
+        if (guestMode) {
+          _openGuestSection(context, destination);
+          break;
+        }
         Navigator.of(context).push(
           MaterialPageRoute<void>(builder: (_) => const NotificationPage()),
         );
         break;
     }
+  }
+
+  void _openGuestSection(BuildContext context, AppDestination destination) {
+    final (title, description, icon) = switch (destination) {
+      AppDestination.sos => (
+        'SOS',
+        'Login diperlukan untuk mengirim permintaan SOS dan melihat status akun. Kontak darurat tetap dapat dibuka sebagai guest.',
+        Icons.sos,
+      ),
+      AppDestination.notifications => (
+        'Notifikasi',
+        'Notifikasi laporan dan SOS hanya dapat dilihat oleh pemilik akun.',
+        Icons.notifications_outlined,
+      ),
+      AppDestination.profile => (
+        'Profil',
+        'Data pribadi, lokasi tersimpan, serta preferensi akun memerlukan login.',
+        Icons.person_outline,
+      ),
+      AppDestination.home || AppDestination.map => ('', '', Icons.info),
+    };
+
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => GuestAccessPage(
+          title: title,
+          description: description,
+          icon: icon,
+          selectedDestination: destination,
+        ),
+      ),
+    );
   }
 
   void _showLayerInfo(BuildContext context) {

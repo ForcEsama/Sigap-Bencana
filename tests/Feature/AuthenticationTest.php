@@ -204,6 +204,26 @@ class AuthenticationTest extends TestCase
         $this->assertDatabaseCount('personal_access_tokens', 0);
     }
 
+    public function test_mobile_login_is_rate_limited_after_repeated_attempts(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'mobile-throttle@example.test',
+            'password' => Hash::make('Password123'),
+        ]);
+
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $this->postJson('/api/login', [
+                'email' => $user->email,
+                'password' => 'WrongPassword',
+            ])->assertUnauthorized();
+        }
+
+        $this->postJson('/api/login', [
+            'email' => $user->email,
+            'password' => 'WrongPassword',
+        ])->assertTooManyRequests();
+    }
+
     public function test_mobile_logout_revokes_the_current_token(): void
     {
         $user = User::factory()->create();

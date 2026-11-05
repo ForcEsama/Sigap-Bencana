@@ -7,6 +7,7 @@ use App\Models\User;
 use Database\Seeders\EmergencyContactSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 class ProfilePageTest extends TestCase
@@ -67,6 +68,36 @@ class ProfilePageTest extends TestCase
             ->assertRedirect(route('profile.edit'));
 
         $this->assertTrue(Hash::check('NewPassword123', $user->fresh()->password));
+    }
+
+    public function test_basic_profile_can_be_updated_when_optional_database_columns_are_missing(): void
+    {
+        $user = User::factory()->create();
+        Schema::shouldReceive('hasColumn')->andReturn(false);
+
+        $this->actingAs($user)
+            ->patch(route('profile.update'), [
+                'form_type' => 'profile',
+                'name' => 'Nama Diperbarui',
+                'email' => $user->email,
+                'phone' => '081234567890',
+                'domicile_address' => '',
+                'province' => '',
+                'regency_city' => '',
+                'district' => '',
+                'village' => '',
+                'postal_code' => '',
+                'date_of_birth' => '',
+                'gender' => '',
+            ])
+            ->assertRedirect(route('profile.edit'))
+            ->assertSessionHas('success', 'Profil berhasil diperbarui.');
+
+        $this->assertDatabaseHas('users', [
+            'id' => $user->id,
+            'name' => 'Nama Diperbarui',
+            'phone' => '081234567890',
+        ]);
     }
 
     public function test_emergency_contacts_are_seeded_and_visible_on_web(): void

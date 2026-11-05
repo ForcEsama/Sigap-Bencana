@@ -121,7 +121,7 @@ class NewsEducationService
         }
         $categoryKey = $this->localCategory($news->category);
         $path = trim((string) $news->image_path);
-        if ($categoryKey === null || $path === '' || str_starts_with($path, '/') || str_contains($path, '..') || ! Storage::disk('public')->exists($path)) {
+        if ($categoryKey === null || ($path !== '' && (str_starts_with($path, '/') || str_contains($path, '..') || ! Storage::disk('public')->exists($path)))) {
             return null;
         }
         $sourceUrl = $this->safeUrl($news->source_url, null);
@@ -137,8 +137,9 @@ class NewsEducationService
             'published_at' => $news->published_at->toIso8601String(),
             'source' => $this->plainText($news->source ?: 'SIGAP BENCANA'),
             'source_url' => $sourceUrl,
-            'image_url' => Storage::disk('public')->url($path),
+            'image_url' => $path === '' ? null : Storage::disk('public')->url($path),
             'image_attribution' => null,
+            'is_simulation' => $this->isSimulation($news),
             'feed_status' => 'available',
             'fetched_at' => null,
         ];
@@ -284,6 +285,16 @@ class NewsEducationService
             'infografis', 'infographic' => 'infographic',
             default => null,
         };
+    }
+
+    private function isSimulation(News $news): bool
+    {
+        if (array_key_exists('is_simulation', $news->getAttributes())) {
+            return (bool) $news->is_simulation;
+        }
+
+        return str_starts_with((string) $news->title, 'Simulasi Berita:')
+            || str_starts_with((string) $news->source, 'Contoh konten');
     }
 
     private function plainText(string $value): string

@@ -41,21 +41,25 @@ class ProfileController extends Controller
             'date_of_birth',
             'gender',
         ];
-        $missingProfileFields = array_filter(
+        $availableProfileFields = array_values(array_filter(
             $profileFields,
-            static fn (string $column): bool => ! Schema::hasColumn('users', $column),
+            static fn (string $column): bool => Schema::hasColumn('users', $column),
+        ));
+        $unsupportedFieldsWithValues = array_filter(
+            array_diff($profileFields, $availableProfileFields),
+            static fn (string $field): bool => filled($request->input($field)),
         );
 
-        if ($missingProfileFields !== []) {
+        if ($unsupportedFieldsWithValues !== []) {
             return redirect()
                 ->route('profile.edit')
                 ->withErrors([
-                    'profile_schema' => 'Kolom profil tambahan belum tersedia pada database. Perubahan belum disimpan; jalankan migrasi database setelah masalah MySQL diperbaiki.',
+                    'profile_schema' => 'Sebagian kolom profil tambahan belum tersedia di database. Perubahan profil belum disimpan; kosongkan kolom tambahan tersebut atau lengkapi migrasi setelah kendala MySQL diperbaiki.',
                 ], 'profile')
                 ->withInput($request->except(['password', 'password_confirmation', 'current_password']));
         }
 
-        $validator = Validator::make($request->all(), [
+        $rules = [
             'name' => ['required', 'string', 'max:255'],
             'email' => [
                 'required',
@@ -64,6 +68,8 @@ class ProfileController extends Controller
                 Rule::unique('users', 'email')->ignore($user->getKey()),
             ],
             'phone' => ['nullable', 'string', 'max:20'],
+        ];
+        $profileRules = [
             'domicile_address' => ['nullable', 'string', 'max:255'],
             'province' => ['nullable', 'string', 'max:100'],
             'regency_city' => ['nullable', 'string', 'max:100'],
@@ -72,7 +78,12 @@ class ProfileController extends Controller
             'postal_code' => ['nullable', 'string', 'max:10'],
             'date_of_birth' => ['nullable', 'date', 'before_or_equal:today'],
             'gender' => ['nullable', Rule::in(['laki-laki', 'perempuan'])],
-        ], [
+        ];
+        foreach ($availableProfileFields as $field) {
+            $rules[$field] = $profileRules[$field];
+        }
+
+        $validator = Validator::make($request->all(), $rules, [
             'name.required' => 'Nama wajib diisi.',
             'name.max' => 'Nama maksimal 255 karakter.',
             'email.required' => 'Email wajib diisi.',
@@ -105,14 +116,11 @@ class ProfileController extends Controller
         $user->name = $validated['name'];
         $user->email = $validated['email'];
         $user->phone = $validated['phone'] ?? null;
-        $user->domicile_address = $validated['domicile_address'] ?? null;
-        $user->province = $validated['province'] ?? null;
-        $user->regency_city = $validated['regency_city'] ?? null;
-        $user->district = $validated['district'] ?? null;
-        $user->village = $validated['village'] ?? null;
-        $user->postal_code = $validated['postal_code'] ?? null;
-        $user->date_of_birth = $validated['date_of_birth'] ?? null;
-        $user->gender = $validated['gender'] ?? null;
+        foreach ($availableProfileFields as $field) {
+            if (array_key_exists($field, $validated)) {
+                $user->{$field} = $validated[$field];
+            }
+        }
 
         if ($emailChanged) {
             $user->email_verified_at = null;

@@ -64,6 +64,7 @@ flutter:
   assets:
     - assets/images/
     - assets/images/evacuation/
+    - assets/images/emergency-contacts/
   
   fonts:
     - family: Poppins

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'admin/admin_dashboard_page.dart';
 import 'evacuation/evacuation_page.dart';
 import 'field/field_dashboard_page.dart';
+import 'guest_access_page.dart';
 import 'news/news_article.dart';
 import 'news/news_detail_page.dart';
 import 'news/news_service.dart';
@@ -11,6 +12,7 @@ import 'profile/profile_page.dart';
 import 'news/news_page.dart';
 import 'notifications/notification_page.dart';
 import 'risk_map/risk_map_page.dart';
+import 'reports/report_form_page.dart';
 import 'reports/report_list_page.dart';
 import 'sos/sos_activation_page.dart';
 import 'services/auth_service.dart';
@@ -161,27 +163,39 @@ class _HomePageState extends State<HomePage> {
         .push(MaterialPageRoute<void>(builder: (_) => dashboard));
   }
 
-  void _requireLogin() {
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Masuk untuk melanjutkan'),
-        content: const Text(
-          'Fitur ini menyimpan aktivitas ke akun Anda. Masuk atau daftar terlebih dahulu.',
+  void _openGuestSection(AppDestination destination) {
+    if (destination == AppDestination.home ||
+        destination == AppDestination.map) {
+      return;
+    }
+
+    final (title, description, icon) = switch (destination) {
+      AppDestination.sos => (
+        'SOS',
+        'Mode guest dapat melihat informasi dan kontak darurat. Login diperlukan untuk mengirim SOS dan melihat status permintaan.',
+        Icons.sos,
+      ),
+      AppDestination.notifications => (
+        'Notifikasi',
+        'Notifikasi aktivitas, laporan, dan SOS bersifat pribadi. Login untuk melihat notifikasi akun Anda.',
+        Icons.notifications_outlined,
+      ),
+      AppDestination.profile => (
+        'Profil',
+        'Data pribadi, lokasi tersimpan, dan preferensi akun memerlukan login. Informasi publik tetap bisa dibuka dari halaman ini.',
+        Icons.person_outline,
+      ),
+      AppDestination.home || AppDestination.map => ('', '', Icons.info),
+    };
+
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => GuestAccessPage(
+          title: title,
+          description: description,
+          icon: icon,
+          selectedDestination: destination,
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Nanti'),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.pop(dialogContext);
-              Navigator.of(context).pushNamed('/login');
-            },
-            child: const Text('Masuk'),
-          ),
-        ],
       ),
     );
   }
@@ -218,7 +232,9 @@ class _HomePageState extends State<HomePage> {
       _warningError = null;
     });
     try {
-      final warnings = await _warningService.fetchActiveWarnings();
+      final warnings = (await _warningService.fetchActiveWarnings())
+          .where((warning) => warning.isOfficialWarning)
+          .toList();
       if (!mounted) return;
       setState(() {
         _activeWarnings = warnings;
@@ -637,7 +653,7 @@ class _HomePageState extends State<HomePage> {
             break;
           case AppDestination.profile:
             if (widget.guestMode) {
-              _requireLogin();
+              _openGuestSection(destination);
               break;
             }
             Navigator.of(context).push(
@@ -646,7 +662,7 @@ class _HomePageState extends State<HomePage> {
             break;
           case AppDestination.sos:
             if (widget.guestMode) {
-              _requireLogin();
+              _openGuestSection(destination);
               break;
             }
             Navigator.of(context).push(
@@ -657,7 +673,7 @@ class _HomePageState extends State<HomePage> {
             break;
           case AppDestination.notifications:
             if (widget.guestMode) {
-              _requireLogin();
+              _openGuestSection(destination);
               break;
             }
             Navigator.of(context).push(
@@ -822,18 +838,18 @@ class _HomePageState extends State<HomePage> {
                             onTap: _openWarnings,
                           ),
                           _serviceCard(
-                            widget.guestMode
-                                ? 'Kontak\nDarurat'
-                                : 'Lapor\nKejadian',
-                            widget.guestMode
-                                ? Icons.phone_in_talk
-                                : Icons.add_home_work,
+                            'Lapor\nKejadian',
+                            Icons.add_home_work,
                             const Color(0xFFFFEDB7),
-                            widget.guestMode ? red : const Color(0xFFC68B00),
+                            const Color(0xFFC68B00),
                             onTap: () {
                               if (widget.guestMode) {
-                                Navigator.of(context)
-                                    .pushNamed('/emergency-contacts');
+                                Navigator.of(context).push(
+                                  MaterialPageRoute<void>(
+                                    builder: (_) =>
+                                        const ReportFormPage(guestMode: true),
+                                  ),
+                                );
                                 return;
                               }
                               Navigator.of(context).push(
@@ -863,6 +879,16 @@ class _HomePageState extends State<HomePage> {
                               );
                             },
                           ),
+                          if (widget.guestMode)
+                            _serviceCard(
+                              'Kontak\nDarurat',
+                              Icons.phone_in_talk,
+                              const Color(0xFFFFE1E6),
+                              red,
+                              onTap: () =>
+                                  Navigator.of(context)
+                                      .pushNamed('/emergency-contacts'),
+                            ),
                         ],
                       ),
 

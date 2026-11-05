@@ -34,9 +34,13 @@ class NewsEducationTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_guest_is_redirected_to_login(): void
+    public function test_guest_can_view_news_and_education(): void
     {
-        $this->get(route('news-education.index'))->assertRedirect(route('login'));
+        $this->fakeSources();
+
+        $this->get(route('news-education.index'))
+            ->assertOk()
+            ->assertSee('Berita & Edukasi');
     }
 
     public function test_category_tabs_filter_verified_news_and_education(): void

@@ -16,6 +16,7 @@ class EarlyWarningResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'kind' => 'warning',
             'title' => $this->title,
             'disaster_type' => $this->disaster_type,
             'description' => $this->description,

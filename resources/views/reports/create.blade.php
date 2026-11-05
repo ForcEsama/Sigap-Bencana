@@ -120,7 +120,7 @@
                                 @error('longitude')<p class="mt-1 text-xs text-red-700">{{ $message }}</p>@enderror
                             </div>
                         </div>
-                        <p id="location-message" class="mt-1 text-xs text-gray-500" aria-live="polite">Masukkan koordinat sendiri atau gunakan lokasi perangkat.</p>
+                        <p id="location-message" class="mt-1 text-xs text-gray-500" aria-live="polite">Masukkan koordinat sendiri atau gunakan lokasi perangkat. Alamat perkiraan disediakan OpenStreetMap; periksa sebelum mengirim.</p>
                     </div>
 
                     <div>
@@ -183,30 +183,97 @@
         sidebar.classList.toggle('open');
     }
 
-    function useCurrentLocation() {
+    async function useCurrentLocation() {
         const message = document.getElementById('location-message');
+        const locateButton = document.querySelector('[aria-label="Gunakan lokasi saya"]');
 
         if (!navigator.geolocation) {
             message.textContent = 'Browser tidak mendukung geolokasi. Silakan isi koordinat secara manual.';
             return;
         }
 
-        message.textContent = 'Meminta izin lokasi perangkat…';
-        navigator.geolocation.getCurrentPosition((position) => {
-            document.getElementById('latitude').value = position.coords.latitude.toFixed(7);
-            document.getElementById('longitude').value = position.coords.longitude.toFixed(7);
-            message.textContent = 'Koordinat terisi dari perangkat. Periksa kembali sebelum mengirim.';
+        locateButton.disabled = true;
+        message.textContent = 'Meminta izin lokasi perangkat...';
+        navigator.geolocation.getCurrentPosition(async (position) => {
+            const latitude = position.coords.latitude;
+            const longitude = position.coords.longitude;
+            document.getElementById('latitude').value = latitude.toFixed(7);
+            document.getElementById('longitude').value = longitude.toFixed(7);
+            document.getElementById('address').value = '';
+            message.textContent = 'Koordinat GPS ditemukan (akurasi sekitar ' + Math.round(position.coords.accuracy) + ' meter). Mencari alamat...';
+
+            try {
+                const address = await reverseGeocode(latitude, longitude);
+                if (address) {
+                    document.getElementById('address').value = address;
+                    message.textContent = 'Perkiraan alamat dari OpenStreetMap: ' + address + '. Periksa sebelum mengirim.';
+                } else {
+                    message.textContent = 'Koordinat GPS ditemukan, tetapi alamat belum tersedia. Isi alamat kejadian secara manual.';
+                }
+            } catch (error) {
+                message.textContent = error.message === 'RATE_LIMITED'
+                    ? 'Koordinat GPS ditemukan, tetapi layanan alamat sedang sibuk. Isi alamat kejadian secara manual.'
+                    : 'Koordinat GPS ditemukan, tetapi alamat gagal dimuat. Periksa koneksi atau isi alamat kejadian secara manual.';
+            } finally {
+                locateButton.disabled = false;
+            }
         }, (error) => {
+            locateButton.disabled = false;
             if (error.code === error.PERMISSION_DENIED) {
-                message.textContent = 'Izin lokasi ditolak. Silakan isi koordinat secara manual.';
+                message.textContent = 'Izin lokasi ditolak. Silakan isi koordinat dan alamat secara manual.';
             } else if (error.code === error.TIMEOUT) {
-                message.textContent = 'Permintaan lokasi melewati batas waktu. Silakan isi koordinat secara manual.';
+                message.textContent = 'Permintaan lokasi melewati batas waktu. Silakan coba lagi atau isi secara manual.';
             } else {
-                message.textContent = 'Lokasi tidak tersedia. Silakan isi koordinat secara manual.';
+                message.textContent = 'Lokasi tidak tersedia. Silakan isi koordinat dan alamat secara manual.';
             }
         }, { enableHighAccuracy: true, timeout: 10000 });
     }
 
+    let lastReverseGeocodeRequestAt = 0;
+
+    async function reverseGeocode(latitude, longitude) {
+        const elapsed = Date.now() - lastReverseGeocodeRequestAt;
+        if (elapsed < 1000) await new Promise((resolve) => window.setTimeout(resolve, 1000 - elapsed));
+        lastReverseGeocodeRequestAt = Date.now();
+        const url = new URL('https://nominatim.openstreetmap.org/reverse');
+        url.search = new URLSearchParams({
+            format: 'jsonv2',
+            lat: latitude.toString(),
+            lon: longitude.toString(),
+            'accept-language': 'id',
+            zoom: '18',
+            addressdetails: '1',
+        });
+        const controller = new AbortController();
+        const timeout = window.setTimeout(() => controller.abort(), 8000);
+
+        try {
+            const response = await fetch(url, {
+                headers: { Accept: 'application/json' },
+                signal: controller.signal,
+            });
+            if (response.status === 429) throw new Error('RATE_LIMITED');
+            if (!response.ok) throw new Error('GEOCODING_FAILED');
+
+            const result = await response.json();
+            const address = result.address || {};
+            const street = [address.house_number, address.road || address.pedestrian || address.residential]
+                .filter(Boolean)
+                .join(' ');
+            const parts = [
+                street,
+                address.neighbourhood || address.suburb || address.village || address.hamlet,
+                address.city_district,
+                address.city || address.town || address.municipality || address.county,
+                address.state,
+            ].filter(Boolean);
+            const uniqueParts = [...new Map(parts.map((part) => [part.toLocaleLowerCase('id'), part])).values()];
+
+            return uniqueParts.join(', ') || result.display_name || null;
+        } finally {
+            window.clearTimeout(timeout);
+        }
+    }
     document.getElementById('photo').addEventListener('change', (event) => {
         document.getElementById('photo-label').textContent = event.target.files[0]?.name ?? 'Klik untuk mengunggah foto';
     });

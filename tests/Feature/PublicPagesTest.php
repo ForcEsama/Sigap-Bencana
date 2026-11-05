@@ -51,7 +51,9 @@ class PublicPagesTest extends TestCase
             'role' => 'masyarakat',
         ]);
 
-        $this->actingAs($user)->get(route('landing'))->assertOk();
+        $this->actingAs($user)
+            ->get(route('landing'))
+            ->assertRedirect(route('home'));
 
         $this->get(route('about.index'))
             ->assertOk()

@@ -9,6 +9,7 @@ use App\Models\News;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\Schema;
 
 class NewsController extends Controller
 {
@@ -33,13 +34,21 @@ class NewsController extends Controller
                 'published_at',
             ]);
 
+        if (Schema::hasColumn('news', 'is_simulation')) {
+            $query->addSelect('is_simulation');
+        }
+
         if (isset($filters['category'])) {
             $category = $filters['category'] === 'berita' ? 'Berita' : 'Edukasi';
             $query->where('category', $category);
 
             if ($category === 'Berita') {
-                $query->where('title', 'not like', 'Simulasi Berita:%')
-                    ->where('source', 'not like', 'Contoh konten%');
+                if (Schema::hasColumn('news', 'is_simulation')) {
+                    $query->where('is_simulation', false);
+                } else {
+                    $query->where('title', 'not like', 'Simulasi Berita:%')
+                        ->where('source', 'not like', 'Contoh konten%');
+                }
             }
         }
 

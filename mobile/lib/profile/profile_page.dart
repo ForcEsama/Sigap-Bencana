@@ -223,14 +223,6 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                     ),
                     _profileItem(
-                      icon: Icons.contact_phone_outlined,
-                      color: const Color(0xFFFF777F),
-                      title: 'Kontak Darurat Saya',
-                      subtitle: 'Kelola kontak darurat pribadi',
-                      onTap: () =>
-                          _openProfilePage(const EmergencyContactsPage()),
-                    ),
-                    _profileItem(
                       icon: Icons.folder,
                       color: const Color(0xFF9C4DDF),
                       title: 'Riwayat Laporan',

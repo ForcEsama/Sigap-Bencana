@@ -20,6 +20,7 @@ class News extends Model
         'content',
         'image_path',
         'category',
+        'is_simulation',
         'source',
         'source_url',
         'status',
@@ -30,6 +31,7 @@ class News extends Model
     {
         return [
             'published_at' => 'datetime',
+            'is_simulation' => 'boolean',
         ];
     }
 

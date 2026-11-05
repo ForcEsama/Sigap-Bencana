@@ -12,11 +12,19 @@ class WarningService {
 
   final http.Client? client;
   final FlutterSecureStorage _storage;
+  String? incidentSourceStatus;
   static const String _cacheKey = 'public_active_warnings_cache';
 
   Future<List<DisasterWarning>> fetchActiveWarnings() async {
     final response = await _get(Uri.parse(ApiConfig.warnings));
-    final records = _decode(response)['data'];
+    final payload = _decode(response);
+    final meta = payload['meta'];
+    final sources = meta is Map ? meta['sources'] : null;
+    final incidentSource = sources is Map ? sources['bnpb_incidents'] : null;
+    incidentSourceStatus = incidentSource is Map
+        ? incidentSource['status'] as String?
+        : null;
+    final records = payload['data'];
     if (records is! List) {
       throw const WarningApiException(
         'Format respons peringatan tidak dikenali.',
@@ -49,8 +57,9 @@ class WarningService {
           .map(DisasterWarning.fromJson)
           .where(
             (warning) =>
+                warning.isOfficialWarning &&
                 warning.status == 'published' &&
-                warning.expiresAt.isAfter(now) &&
+                (warning.expiresAt?.isAfter(now) ?? false) &&
                 (warning.startsAt == null || !warning.startsAt!.isAfter(now)),
           )
           .toList()

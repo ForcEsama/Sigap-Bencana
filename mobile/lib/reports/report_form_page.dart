@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../profile/location_service.dart';
 import 'report_formatters.dart';
 import 'report_service.dart';
 
 class ReportFormPage extends StatefulWidget {
-  const ReportFormPage({super.key});
+  const ReportFormPage({this.guestMode = false, super.key});
+
+  final bool guestMode;
 
   @override
   State<ReportFormPage> createState() => _ReportFormPageState();
@@ -20,10 +23,14 @@ class _ReportFormPageState extends State<ReportFormPage> {
   final TextEditingController _latitudeController = TextEditingController();
   final TextEditingController _longitudeController = TextEditingController();
   final ReportService _reportService = ReportService();
+  final LocationService _locationService = LocationService();
 
   String? _disasterType;
+  String? _locationMessage;
   DateTime? _occurredAt;
   bool _isSubmitting = false;
+  bool _isDetectingLocation = false;
+  bool _locationDetectionFailed = false;
 
   @override
   void dispose() {
@@ -47,6 +54,39 @@ class _ReportFormPageState extends State<ReportFormPage> {
     }
 
     return null;
+  }
+
+  Future<void> _detectCurrentLocation() async {
+    if (_isDetectingLocation || _isSubmitting) return;
+
+    setState(() {
+      _isDetectingLocation = true;
+      _locationDetectionFailed = false;
+      _locationMessage = 'Meminta izin dan mengambil lokasi GPS…';
+    });
+
+    try {
+      final location = await _locationService.getCurrentLocation();
+      if (!mounted) return;
+
+      _latitudeController.text = location.latitude.toStringAsFixed(7);
+      _longitudeController.text = location.longitude.toStringAsFixed(7);
+      if (location.address != null) {
+        _addressController.text = location.address!;
+      }
+      setState(() {
+        _locationMessage =
+            'Koordinat terisi dari GPS (akurasi ±${location.accuracyMeters.round()} m). Periksa alamat dan titiknya sebelum mengirim.';
+      });
+    } on LocationServiceException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _locationDetectionFailed = true;
+        _locationMessage = error.message;
+      });
+    } finally {
+      if (mounted) setState(() => _isDetectingLocation = false);
+    }
   }
 
   Future<void> _chooseOccurredAt() async {
@@ -101,6 +141,11 @@ class _ReportFormPageState extends State<ReportFormPage> {
   }
 
   Future<void> _submit() async {
+    if (widget.guestMode) {
+      await _showLoginPrompt();
+      return;
+    }
+
     FocusScope.of(context).unfocus();
 
     if (!_formKey.currentState!.validate()) return;
@@ -160,6 +205,32 @@ class _ReportFormPageState extends State<ReportFormPage> {
     }
   }
 
+  Future<void> _showLoginPrompt() async {
+    final shouldLogin = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Login untuk mengirim laporan'),
+        content: const Text(
+          'Mode guest dapat melihat dan mengisi form. Laporan hanya dikirim setelah Anda login.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Nanti'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Masuk'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldLogin == true && mounted) {
+      Navigator.of(context).pushNamed('/login');
+    }
+  }
+
   void _showMessage(String message) {
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(message), backgroundColor: red));
@@ -171,6 +242,7 @@ class _ReportFormPageState extends State<ReportFormPage> {
     required String hint,
     int maxLines = 1,
     TextInputType? keyboardType,
+    Widget? suffixIcon,
     String? Function(String?)? validator,
   }) {
     return Column(
@@ -187,6 +259,11 @@ class _ReportFormPageState extends State<ReportFormPage> {
             hintText: hint,
             filled: true,
             fillColor: Colors.white,
+            suffixIcon: suffixIcon,
+            suffixIconConstraints: const BoxConstraints(
+              minWidth: 48,
+              minHeight: 48,
+            ),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
@@ -219,6 +296,21 @@ class _ReportFormPageState extends State<ReportFormPage> {
               'Bantu sebarkan informasi untuk penanganan lebih cepat.',
               style: TextStyle(fontSize: 14, height: 1.4),
             ),
+            if (widget.guestMode) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFFFD0D8)),
+                ),
+                child: const Text(
+                  'Mode guest: Anda dapat melihat dan mengisi form. Login diperlukan sebelum laporan dapat dikirim.',
+                  style: TextStyle(fontSize: 12, height: 1.4),
+                ),
+              ),
+            ],
             const SizedBox(height: 22),
             const Text(
               'Jenis Bencana',
@@ -250,10 +342,34 @@ class _ReportFormPageState extends State<ReportFormPage> {
               label: 'Lokasi Kejadian',
               controller: _addressController,
               hint: 'Alamat atau keterangan lokasi',
+              suffixIcon: IconButton(
+                onPressed: _isDetectingLocation || _isSubmitting
+                    ? null
+                    : _detectCurrentLocation,
+                tooltip: 'Deteksi lokasi saat ini',
+                color: red,
+                icon: _isDetectingLocation
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.location_pin),
+              ),
               validator: (value) => value == null || value.trim().isEmpty
                   ? 'Lokasi kejadian wajib diisi.'
                   : null,
             ),
+            if (_locationMessage != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                _locationMessage!,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: _locationDetectionFailed ? red : Colors.black54,
+                ),
+              ),
+            ],
             const SizedBox(height: 12),
             const Text(
               'Koordinat lokasi diperlukan agar laporan dapat dipetakan.',
@@ -360,7 +476,11 @@ class _ReportFormPageState extends State<ReportFormPage> {
                         color: Colors.white,
                       ),
                     )
-                  : const Text('Kirim Laporan'),
+              : Text(
+                  widget.guestMode
+                      ? 'Masuk untuk mengirim laporan'
+                      : 'Kirim Laporan',
+                ),
             ),
           ],
         ),

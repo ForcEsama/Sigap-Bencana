@@ -83,7 +83,7 @@
                 <button type="button" class="mt-1 text-xl lg:hidden" onclick="toggleMenu()" aria-label="Buka menu"><i class="fa-solid fa-bars"></i></button>
                 <div>
                     <h1 class="text-2xl font-semibold sm:text-3xl">Peringatan Bencana</h1>
-                    <p class="mt-1 text-sm text-gray-500 sm:text-base">Peringatan resmi yang masih berlaku dari sumber tepercaya</p>
+                    <p class="mt-1 text-sm text-gray-500 sm:text-base">Peringatan resmi aktif dan catatan kejadian terbaru dari BMKG serta BNPB</p>
                 </div>
             </div>
             <div class="flex shrink-0 items-center gap-2 pt-1 sm:gap-3">
@@ -120,12 +120,22 @@
             <button type="submit" class="rounded-md bg-sigap px-4 py-2.5 text-sm font-medium text-white bg-red-700 hover:bg-red-800">Terapkan</button>
         </form>
 
+        @if ($incidentFeedStatus === 'unavailable')
+            <p class="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="status">
+                Catatan kejadian BNPB belum dapat dihubungi. Peringatan BMKG tetap ditampilkan jika tersedia.
+            </p>
+        @elseif ($incidentFeedStatus === 'stale')
+            <p class="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="status">
+                Catatan kejadian BNPB menggunakan data tersimpan karena pembaruan sumber gagal.
+            </p>
+        @endif
+
         @if ($cards === [])
             <section class="rounded-lg border border-dashed border-rose-200 bg-white px-5 py-12 text-center shadow-sm" aria-live="polite">
                 <i class="fa-regular fa-newspaper mb-3 text-4xl text-gray-400" aria-hidden="true"></i>
-                <h2 class="font-semibold">{{ $allSourcesUnavailable ? 'Peringatan resmi belum dapat dimuat.' : (($search !== '' || $typeFilter !== '' || $regionFilter !== '') ? 'Tidak ada peringatan aktif yang cocok dengan pencarian atau filter.' : 'Saat ini tidak ada peringatan resmi yang aktif.') }}</h2>
+                <h2 class="font-semibold">{{ $allSourcesUnavailable ? 'Informasi bencana belum dapat dimuat.' : (($search !== '' || $typeFilter !== '' || $regionFilter !== '') ? 'Tidak ada informasi yang cocok dengan pencarian atau filter.' : 'Tidak ada peringatan aktif atau catatan kejadian terbaru saat ini.') }}</h2>
                 @if ($allSourcesUnavailable)
-                    <p class="mt-2 text-sm text-gray-600">Sumber peringatan sedang tidak tersedia. Silakan coba kembali nanti.</p>
+                    <p class="mt-2 text-sm text-gray-600">Sumber resmi sedang tidak tersedia. Silakan coba kembali nanti.</p>
                 @endif
             </section>
         @else
@@ -146,9 +156,16 @@
                         </div>
                         <div class="alert-card__body">
                             <div class="alert-card__copy">
-                                <span class="inline-block max-w-full rounded bg-rose-100 px-2 py-1 text-[11px] font-medium text-rose-800 sm:text-sm">{{ $card['type_label'] }}</span>
+                                <div class="mb-1 flex flex-wrap items-center gap-1.5">
+                                    @if ($card['kind'] === 'warning')
+                                        <span class="inline-flex max-w-full rounded bg-amber-100 px-2 py-1 text-[11px] font-semibold text-amber-900 sm:text-xs">Peringatan Dini</span>
+                                    @elseif ($card['kind'] === 'incident')
+                                        <span class="inline-flex max-w-full rounded bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-800 sm:text-xs">Kejadian Tercatat</span>
+                                    @endif
+                                    <span class="inline-flex max-w-full rounded bg-rose-100 px-2 py-1 text-[11px] font-medium text-rose-800 sm:text-sm">{{ $card['type_label'] }}</span>
+                                </div>
                                 <h2 class="alert-card__title mt-1 text-base font-semibold leading-snug sm:text-xl">{{ $card['title'] }}</h2>
-                                @if ($card['region'] && $card['kind'] === 'warning')
+                                @if ($card['region'])
                                     <p class="mt-1 text-[14px] text-gray-600 sm:text-sm">Wilayah: {{ $card['region'] }}</p>
                                 @endif
                                 @if ($card['summary'])

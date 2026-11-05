@@ -109,6 +109,16 @@ class _EmergencyContactDirectoryPageState
     return Icons.call_outlined;
   }
 
+  String? _logoAssetFor(String name) {
+    return switch (name.trim().toLowerCase()) {
+      'bpbd kota padang' =>
+        'assets/images/emergency-contacts/bpbd-kota-padang.png',
+      'basarnas' => 'assets/images/emergency-contacts/basarnas.png',
+      'polri' => 'assets/images/emergency-contacts/polri.png',
+      _ => null,
+    };
+  }
+
   String? _phoneNumber(String value) {
     final sanitized = value.replaceAll(RegExp(r'[^0-9+]'), '');
     return RegExp(r'^\+?[0-9]{3,30}$').hasMatch(sanitized)
@@ -208,6 +218,7 @@ class _EmergencyContactDirectoryPageState
   }
 
   Widget _contactCard(EmergencyContact contact) {
+    final logoAsset = _logoAssetFor(contact.name);
     final phone = _phoneNumber(contact.phone);
     final location = [contact.region, contact.address]
         .whereType<String>()
@@ -241,7 +252,17 @@ class _EmergencyContactDirectoryPageState
                   color: const Color(0xFFFFECED),
                   borderRadius: BorderRadius.circular(11),
                 ),
-                child: Icon(_iconFor(contact.category), color: _red),
+                child: logoAsset == null
+                    ? Icon(_iconFor(contact.category), color: _red)
+                    : Padding(
+                        padding: const EdgeInsets.all(4),
+                        child: Image.asset(
+                          logoAsset,
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) =>
+                              Icon(_iconFor(contact.category), color: _red),
+                        ),
+                      ),
               ),
               const SizedBox(width: 12),
               Expanded(

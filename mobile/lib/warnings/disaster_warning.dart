@@ -11,9 +11,11 @@ class DisasterWarning {
     required this.sourceUrl,
     required this.status,
     required this.expiresAt,
+    this.kind = 'warning',
     this.updatedAt,
     this.publishedAt,
     this.startsAt,
+    this.incidentCount,
   });
 
   final int id;
@@ -28,8 +30,13 @@ class DisasterWarning {
   final String status;
   final DateTime? publishedAt;
   final DateTime? startsAt;
-  final DateTime expiresAt;
+  final DateTime? expiresAt;
   final DateTime? updatedAt;
+  final String kind;
+  final int? incidentCount;
+
+  bool get isOfficialWarning => kind == 'warning';
+  bool get isRecordedIncident => kind == 'incident';
 
   factory DisasterWarning.fromJson(Map<String, dynamic> json) {
     return DisasterWarning(
@@ -45,8 +52,12 @@ class DisasterWarning {
       status: json['status'] as String,
       publishedAt: _date(json['published_at']),
       startsAt: _date(json['starts_at']),
-      expiresAt: DateTime.parse(json['expires_at'] as String),
+      expiresAt: _date(json['expires_at']),
       updatedAt: _date(json['updated_at']),
+      kind: json['kind'] as String? ?? 'warning',
+      incidentCount: json['incident_count'] is num
+          ? (json['incident_count'] as num).toInt()
+          : null,
     );
   }
 

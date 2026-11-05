@@ -6,6 +6,7 @@ use App\Models\News;
 use App\Models\User;
 use App\Services\NewsEducationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class NewsApiTest extends TestCase
@@ -60,6 +61,7 @@ class NewsApiTest extends TestCase
             'slug' => 'simulasi-berita-contoh',
             'source' => 'Contoh konten SIGAP BENCANA',
             'source_url' => 'https://www.bmkg.go.id/',
+            'is_simulation' => true,
         ]);
 
         $this->getJson('/api/v1/news?category=berita')
@@ -102,6 +104,7 @@ class NewsApiTest extends TestCase
             'slug' => 'simulasi-contoh',
             'source' => 'Contoh konten SIGAP BENCANA',
             'content' => '<p>SIMULASI — bukan laporan kejadian aktual.</p>',
+            'is_simulation' => true,
         ]);
 
         $this->getJson('/api/v1/news/simulasi-contoh')
@@ -177,6 +180,32 @@ class NewsApiTest extends TestCase
             ->assertJsonPath('data.source', 'BNPB');
     }
 
+    public function test_mobile_article_detail_preserves_explicit_simulation_marker(): void
+    {
+        $item = $this->feedItem('bnpb', 'news', 'Berita Terkini', 'Konten simulasi');
+        $item['is_simulation'] = true;
+        $this->mock(NewsEducationService::class, function ($mock) use ($item): void {
+            $mock->shouldReceive('findExternal')->once()->with('bnpb', $item['id'])->andReturn($item);
+        });
+
+        $this->getJson('/api/v1/mobile/news/bnpb/'.$item['id'])
+            ->assertOk()
+            ->assertJsonPath('data.is_simulation', true);
+    }
+
+    public function test_local_published_article_without_an_image_is_still_available(): void
+    {
+        Storage::fake('public');
+        $author = User::factory()->create();
+        $article = $this->createArticle($author, ['image_path' => null]);
+
+        $item = app(NewsEducationService::class)->localItem($article);
+
+        $this->assertNotNull($item);
+        $this->assertNull($item['image_url']);
+        $this->assertFalse($item['is_simulation']);
+    }
+
     /** @return array<string, mixed> */
     private function feedItem(string $sourceType, string $categoryKey, string $category, string $title): array
     {
@@ -222,6 +251,7 @@ class NewsApiTest extends TestCase
             'excerpt' => 'Ringkasan artikel uji.',
             'content' => '<p>Konten artikel uji.</p>',
             'category' => 'Berita',
+            'is_simulation' => false,
             'source' => 'Sumber Uji',
             'source_url' => 'https://example.test/source',
             'status' => 'published',

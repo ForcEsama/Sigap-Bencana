@@ -90,6 +90,7 @@ class SigapBencanaApp extends StatelessWidget {
       routes: {
         '/welcome': (_) => const WelcomePage(),
         '/login': (_) => const LoginPage(),
+        '/register': (_) => const RegisterPage(),
         '/emergency-contacts': (_) => const EmergencyContactDirectoryPage(),
         '/risk-map': (_) => const RiskMapPage(),
         '/profile': (_) => const ProfilePage(),
