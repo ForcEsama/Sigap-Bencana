@@ -4,9 +4,14 @@ import 'news_article.dart';
 import 'news_service.dart';
 
 class NewsDetailPage extends StatefulWidget {
-  const NewsDetailPage({super.key, required this.slug});
+  const NewsDetailPage({
+    super.key,
+    required this.slug,
+    this.sourceType = 'local',
+  });
 
   final String slug;
+  final String sourceType;
 
   @override
   State<NewsDetailPage> createState() => _NewsDetailPageState();
@@ -32,7 +37,10 @@ class _NewsDetailPageState extends State<NewsDetailPage> {
     });
 
     try {
-      final article = await _newsService.fetchArticle(widget.slug);
+      final article = await _newsService.fetchArticle(
+        widget.slug,
+        sourceType: widget.sourceType,
+      );
       if (!mounted) return;
       setState(() {
         _article = article;

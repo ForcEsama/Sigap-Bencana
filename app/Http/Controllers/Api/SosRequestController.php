@@ -5,7 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\SosRequestResource;
 use App\Models\SosRequest;
-use App\Models\User;
+use App\Services\DisasterOperationsService;
+use App\UserRole;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -45,6 +46,8 @@ class SosRequestController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        abort_unless($request->user()->role === UserRole::Masyarakat->value, 403);
+
         $validated = $request->validate([
             'client_request_id' => ['required', 'uuid'],
             'disaster_type' => ['required', Rule::in(self::DISASTER_TYPES)],
@@ -113,7 +116,11 @@ class SosRequestController extends Controller
                 : SosRequest::query()->find($sosRequestId);
 
             if ($sosRequest === null) {
-                throw $exception;
+                report($exception);
+
+                return response()->json([
+                    'message' => 'Server belum dapat menyimpan permintaan SOS. Coba kirim ulang permintaan yang sama beberapa saat lagi.',
+                ], 503);
             }
 
             $created = false;
@@ -139,99 +146,39 @@ class SosRequestController extends Controller
         return new SosRequestResource($sosRequest);
     }
 
-    public function updateStatus(Request $request, int $id): JsonResponse
-    {
+    public function updateStatus(
+        Request $request,
+        int $id,
+        DisasterOperationsService $operations,
+    ): JsonResponse {
         $validated = $request->validate([
-            'status' => [
-                'required',
-                Rule::in(['assigned', 'en_route', 'arrived', 'completed', 'rejected']),
-            ],
+            'status' => ['required', Rule::in(['assigned', 'en_route', 'arrived', 'completed', 'rejected'])],
             'assigned_to' => ['required_if:status,assigned', 'nullable', 'integer', 'exists:users,id'],
             'notes' => [
-                Rule::requiredIf($request->input('status') === 'rejected'),
+                Rule::requiredIf(in_array($request->input('status'), ['rejected', 'completed'], true)),
                 'nullable',
                 'string',
                 'max:2000',
             ],
         ]);
 
-        if (isset($validated['assigned_to']) && ! User::query()
-            ->whereKey($validated['assigned_to'])
-            ->whereIn('role', ['petugas', 'admin'])
-            ->where('is_active', true)
-            ->exists()) {
-            return response()->json([
-                'message' => 'Petugas yang ditugaskan harus memiliki akun aktif.',
-            ], 422);
-        }
-
-        $sosRequest = DB::transaction(function () use (
-            $request,
-            $id,
-            $validated,
-        ): SosRequest {
-            $sosRequest = SosRequest::query()
-                ->lockForUpdate()
-                ->findOrFail($id);
-            $allowedTransitions = [
-                'sent' => ['assigned', 'rejected'],
-                'assigned' => ['en_route'],
-                'en_route' => ['arrived'],
-                'arrived' => ['completed'],
-            ];
-            $oldStatus = $sosRequest->status;
-            $newStatus = $validated['status'];
-
-            if (
-                $request->user()->role !== 'admin' &&
-                (($oldStatus === 'sent' &&
-                    ($newStatus !== 'assigned' ||
-                        (int) $validated['assigned_to'] !== (int) $request->user()->id)) ||
-                    ($oldStatus !== 'sent' &&
-                        (int) $sosRequest->assigned_to !== (int) $request->user()->id))
-            ) {
-                abort(403, 'Petugas hanya dapat memperbarui SOS yang ditugaskan kepadanya.');
-            }
-
-            if (! in_array($newStatus, $allowedTransitions[$oldStatus] ?? [], true)) {
-                abort(409, 'Perubahan status SOS tidak sesuai urutan yang diizinkan.');
-            }
-
-            $sosRequest->status = $newStatus;
-            if ($newStatus === 'assigned') {
-                $sosRequest->assigned_to = $validated['assigned_to'];
-                $sosRequest->acknowledged_at = now();
-            }
-            if ($newStatus === 'completed') {
-                $sosRequest->completed_at = now();
-            }
-            $sosRequest->save();
-
-            $sosRequest->histories()->create([
-                'actor_id' => $request->user()->id,
-                'old_status' => $oldStatus,
-                'new_status' => $newStatus,
-                'notes' => $validated['notes'] ?? null,
-            ]);
-
-            $sosRequest->user->notifications()->create([
-                'title' => self::STATUS_LABELS[$newStatus],
-                'message' => sprintf(
-                    '%s: %s.%s',
-                    $sosRequest->reference(),
-                    self::STATUS_LABELS[$newStatus],
-                    isset($validated['notes']) ? ' '.$validated['notes'] : '',
-                ),
-                'type' => 'Aktivitas',
-                'related_type' => 'sos_request',
-                'related_id' => $sosRequest->id,
-            ]);
-
-            return $sosRequest->load(['histories.actor']);
-        });
+        $sosRequest = $validated['status'] === 'assigned'
+            ? $operations->assignSos(
+                $request->user(),
+                $id,
+                (int) $validated['assigned_to'],
+            )
+            : $operations->updateSosStatus(
+                $request->user(),
+                $id,
+                $validated['status'],
+                $validated['notes'] ?? null,
+            );
 
         return response()->json([
-            'message' => 'Status SOS berhasil diperbarui.',
+            'message' => $validated['status'] === 'assigned'
+                ? 'Petugas berhasil ditugaskan.'
+                : 'Status SOS berhasil diperbarui.',
             'data' => new SosRequestResource($sosRequest),
         ]);
     }

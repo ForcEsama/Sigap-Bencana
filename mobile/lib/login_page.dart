@@ -1,4 +1,3 @@
-
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -7,7 +6,7 @@ import 'package:http/http.dart' as http;
 import 'config/api_config.dart';
 import 'services/auth_service.dart';
 
-import 'home_page.dart';
+import 'services/role_home_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -36,12 +35,8 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: red,
-      ),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message), backgroundColor: red));
   }
 
   Future<void> _login() async {
@@ -98,26 +93,28 @@ class _LoginPageState extends State<LoginPage> {
           return;
         }
 
-        await AuthService.saveSession(
-          token: token.toString(),
-          user: userData,
-        );
+        await AuthService.saveSession(token: token.toString(), user: userData);
         // Token dan data pengguna sudah disimpan secara aman.
 
         _showMessage('Login berhasil! Selamat datang.');
 
         debugPrint('Token autentikasi berhasil diterima.');
 
-        // Sementara kembali ke halaman sebelumnya.
-        // Berikutnya kita ganti dengan homepage khusus pengguna login.
         await Future.delayed(const Duration(milliseconds: 700));
 
         if (!mounted) return;
 
+        final role = userData['role']?.toString();
+        final destination = signedInPageForRole(role);
+        if (destination == null) {
+          await AuthService.clearSession();
+          if (mounted) {
+            _showMessage('Role akun tidak dikenali. Hubungi administrator.');
+          }
+          return;
+        }
         Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(
-            builder: (_) => const HomePage(),
-          ),
+          MaterialPageRoute(builder: (_) => destination),
           (route) => false,
         );
       } else {
@@ -125,10 +122,9 @@ class _LoginPageState extends State<LoginPage> {
 
         if (errors is Map && errors.isNotEmpty) {
           final firstError = errors.values.first;
-          final message =
-              firstError is List && firstError.isNotEmpty
-                  ? firstError.first.toString()
-                  : firstError.toString();
+          final message = firstError is List && firstError.isNotEmpty
+              ? firstError.first.toString()
+              : firstError.toString();
 
           _showMessage(message);
         } else {
@@ -171,15 +167,8 @@ class _LoginPageState extends State<LoginPage> {
         style: const TextStyle(fontSize: 12),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: const TextStyle(
-            fontSize: 11,
-            color: Color(0xFF716A75),
-          ),
-          prefixIcon: Icon(
-            icon,
-            size: 18,
-            color: const Color(0xFF504B55),
-          ),
+          hintStyle: const TextStyle(fontSize: 11, color: Color(0xFF716A75)),
+          prefixIcon: Icon(icon, size: 18, color: const Color(0xFF504B55)),
           suffixIcon: suffixIcon,
           filled: true,
           fillColor: Colors.white,
@@ -234,10 +223,7 @@ class _LoginPageState extends State<LoginPage> {
 
                 const Text(
                   'Masuk',
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
                 ),
 
                 const SizedBox(height: 4),
@@ -307,15 +293,11 @@ class _LoginPageState extends State<LoginPage> {
                         },
                         activeColor: red,
                         side: const BorderSide(color: red),
-                        materialTapTargetSize:
-                            MaterialTapTargetSize.shrinkWrap,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
                     ),
                     const SizedBox(width: 4),
-                    const Text(
-                      'Ingat saya',
-                      style: TextStyle(fontSize: 10),
-                    ),
+                    const Text('Ingat saya', style: TextStyle(fontSize: 10)),
                     const Spacer(),
                     TextButton(
                       onPressed: () {
@@ -361,10 +343,7 @@ class _LoginPageState extends State<LoginPage> {
                               color: Colors.white,
                             ),
                           )
-                        : const Text(
-                            'Masuk',
-                            style: TextStyle(fontSize: 12),
-                          ),
+                        : const Text('Masuk', style: TextStyle(fontSize: 12)),
                   ),
                 ),
 
@@ -372,9 +351,7 @@ class _LoginPageState extends State<LoginPage> {
 
                 const Row(
                   children: [
-                    Expanded(
-                      child: Divider(color: Color(0xFFBDB7BA)),
-                    ),
+                    Expanded(child: Divider(color: Color(0xFFBDB7BA))),
                     Padding(
                       padding: EdgeInsets.symmetric(horizontal: 7),
                       child: Text(
@@ -385,9 +362,7 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                       ),
                     ),
-                    Expanded(
-                      child: Divider(color: Color(0xFFBDB7BA)),
-                    ),
+                    Expanded(child: Divider(color: Color(0xFFBDB7BA))),
                   ],
                 ),
 
@@ -412,10 +387,9 @@ class _LoginPageState extends State<LoginPage> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(
-                          Icons.g_mobiledata,
-                          color: Color(0xFF4285F4),
-                          size: 29,
+                        const CustomPaint(
+                          size: Size.square(21),
+                          painter: _GoogleGLogoPainter(),
                         ),
                         const SizedBox(width: 7),
                         const Text(
@@ -461,4 +435,48 @@ class _LoginPageState extends State<LoginPage> {
       ),
     );
   }
+}
+
+class _GoogleGLogoPainter extends CustomPainter {
+  const _GoogleGLogoPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width * 0.39;
+    final strokeWidth = size.width * 0.22;
+    final bounds = Rect.fromCircle(center: center, radius: radius);
+    final segments = <(Color, double, double)>[
+      (const Color(0xFFEA4335), 3.927, 1.571),
+      (const Color(0xFF4285F4), 5.498, 1.571),
+      (const Color(0xFF34A853), 0.785, 1.571),
+      (const Color(0xFFFBBC05), 2.356, 1.571),
+    ];
+
+    for (final (color, startAngle, sweepAngle) in segments) {
+      canvas.drawArc(
+        bounds,
+        startAngle,
+        sweepAngle,
+        false,
+        Paint()
+          ..color = color
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = strokeWidth
+          ..strokeCap = StrokeCap.butt,
+      );
+    }
+
+    canvas.drawLine(
+      Offset(center.dx, center.dy),
+      Offset(size.width - 0.5, center.dy),
+      Paint()
+        ..color = const Color(0xFF4285F4)
+        ..strokeWidth = strokeWidth
+        ..strokeCap = StrokeCap.butt,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

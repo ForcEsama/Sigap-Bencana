@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\HasOneThrough;
 
 class DisasterReport extends Model
 {
@@ -50,6 +52,23 @@ class DisasterReport extends Model
             User::class,
             'verified_by'
         );
+    }
+
+    public function assignedOfficer(): HasOneThrough
+    {
+        return $this->hasOneThrough(
+            User::class,
+            DisasterReportAssignment::class,
+            'disaster_report_id',
+            'id',
+            'id',
+            'assigned_to',
+        );
+    }
+
+    public function assignment(): HasOne
+    {
+        return $this->hasOne(DisasterReportAssignment::class, 'disaster_report_id');
     }
 
     // Riwayat perubahan status laporan

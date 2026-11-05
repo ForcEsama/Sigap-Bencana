@@ -7,6 +7,7 @@ import '../sos/sos_activation_page.dart';
 import '../widgets/app_bottom_navigation.dart';
 import 'profile_tools_pages.dart';
 import 'profile_service.dart';
+import 'emergency_contact_directory_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -215,10 +216,11 @@ class _ProfilePageState extends State<ProfilePage> {
                     _profileItem(
                       icon: Icons.call,
                       color: const Color(0xFFFF1744),
-                      title: 'Kontak Darurat Saya',
-                      subtitle: 'Kelola kontak darurat pribadi',
-                      onTap: () =>
-                          _openProfilePage(const EmergencyContactsPage()),
+                      title: 'Kontak Darurat',
+                      subtitle: 'Lihat layanan darurat yang tersedia',
+                      onTap: () => _openProfilePage(
+                        const EmergencyContactDirectoryPage(),
+                      ),
                     ),
                     _profileItem(
                       icon: Icons.folder,
@@ -509,22 +511,53 @@ class _ProfileDetailsPageState extends State<ProfileDetailsPage> {
           const SizedBox(height: 8),
           _dataRow(
             Icons.location_on_outlined,
-            'Lokasi Domisili',
-            'Belum tersedia pada data akun',
+            'Alamat Domisili',
+            _profileValue('domicile_address'),
+          ),
+          _dataRow(Icons.map_outlined, 'Provinsi', _profileValue('province')),
+          _dataRow(
+            Icons.location_city_outlined,
+            'Kabupaten/Kota',
+            _profileValue('regency_city'),
+          ),
+          _dataRow(Icons.map_outlined, 'Kecamatan', _profileValue('district')),
+          _dataRow(
+            Icons.location_on_outlined,
+            'Kelurahan/Desa',
+            _profileValue('village'),
+          ),
+          _dataRow(
+            Icons.markunread_mailbox_outlined,
+            'Kode Pos',
+            _profileValue('postal_code'),
           ),
           _dataRow(
             Icons.calendar_month_outlined,
             'Tanggal Lahir',
-            'Belum tersedia pada data akun',
+            _formatDate(_profile['date_of_birth']?.toString()),
           ),
           _dataRow(
             Icons.person_outline,
             'Jenis Kelamin',
-            'Belum tersedia pada data akun',
+            _profileValue('gender'),
           ),
         ],
       ),
     );
+  }
+
+  String _profileValue(String key) {
+    final value = _profile[key]?.toString().trim();
+
+    return value == null || value.isEmpty ? 'Belum diisi' : value;
+  }
+
+  String _formatDate(String? value) {
+    final date = value == null ? null : DateTime.tryParse(value);
+    if (date == null) return 'Belum diisi';
+
+    return '${date.day.toString().padLeft(2, '0')}/'
+        '${date.month.toString().padLeft(2, '0')}/${date.year}';
   }
 }
 
@@ -543,6 +576,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
   late final TextEditingController _nameController;
   late final TextEditingController _emailController;
   late final TextEditingController _phoneController;
+  late final TextEditingController _domicileAddressController;
+  late final TextEditingController _provinceController;
+  late final TextEditingController _regencyCityController;
+  late final TextEditingController _districtController;
+  late final TextEditingController _villageController;
+  late final TextEditingController _postalCodeController;
+  late final TextEditingController _dateOfBirthController;
+  String? _gender;
   bool _isSaving = false;
 
   @override
@@ -557,6 +598,34 @@ class _EditProfilePageState extends State<EditProfilePage> {
     _phoneController = TextEditingController(
       text: widget.profile['phone']?.toString(),
     );
+    _domicileAddressController = TextEditingController(
+      text: widget.profile['domicile_address']?.toString(),
+    );
+    _provinceController = TextEditingController(
+      text: widget.profile['province']?.toString(),
+    );
+    _regencyCityController = TextEditingController(
+      text: widget.profile['regency_city']?.toString(),
+    );
+    _districtController = TextEditingController(
+      text: widget.profile['district']?.toString(),
+    );
+    _villageController = TextEditingController(
+      text: widget.profile['village']?.toString(),
+    );
+    _postalCodeController = TextEditingController(
+      text: widget.profile['postal_code']?.toString(),
+    );
+    final storedDate = DateTime.tryParse(
+      widget.profile['date_of_birth']?.toString() ?? '',
+    );
+    _dateOfBirthController = TextEditingController(
+      text: storedDate == null ? '' : _formatApiDate(storedDate),
+    );
+    final storedGender = widget.profile['gender']?.toString();
+    _gender = const ['laki-laki', 'perempuan'].contains(storedGender)
+        ? storedGender
+        : null;
   }
 
   @override
@@ -564,6 +633,13 @@ class _EditProfilePageState extends State<EditProfilePage> {
     _nameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
+    _domicileAddressController.dispose();
+    _provinceController.dispose();
+    _regencyCityController.dispose();
+    _districtController.dispose();
+    _villageController.dispose();
+    _postalCodeController.dispose();
+    _dateOfBirthController.dispose();
     super.dispose();
   }
 
@@ -576,6 +652,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
         name: _nameController.text.trim(),
         email: _emailController.text.trim(),
         phone: _phoneController.text.trim(),
+        domicileAddress: _domicileAddressController.text,
+        province: _provinceController.text,
+        regencyCity: _regencyCityController.text,
+        district: _districtController.text,
+        village: _villageController.text,
+        postalCode: _postalCodeController.text,
+        dateOfBirth: _dateOfBirthController.text,
+        gender: _gender ?? '',
       );
       if (mounted) Navigator.of(context).pop(updated);
     } on ProfileSessionExpired {
@@ -599,6 +683,30 @@ class _EditProfilePageState extends State<EditProfilePage> {
     fillColor: Colors.white,
     border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
   );
+
+  Future<void> _selectDateOfBirth() async {
+    final today = DateUtils.dateOnly(DateTime.now());
+    final savedDate = DateTime.tryParse(_dateOfBirthController.text);
+    final initialDate = savedDate != null && !savedDate.isAfter(today)
+        ? savedDate
+        : DateTime(today.year - 18, today.month, today.day);
+    final selectedDate = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: DateTime(1900),
+      lastDate: today,
+      locale: const Locale('id'),
+    );
+
+    if (selectedDate != null) {
+      _dateOfBirthController.text = _formatApiDate(selectedDate);
+    }
+  }
+
+  String _formatApiDate(DateTime date) =>
+      '${date.year.toString().padLeft(4, '0')}-'
+      '${date.month.toString().padLeft(2, '0')}-'
+      '${date.day.toString().padLeft(2, '0')}';
 
   @override
   Widget build(BuildContext context) {
@@ -686,16 +794,76 @@ class _EditProfilePageState extends State<EditProfilePage> {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
+            TextFormField(
+              controller: _domicileAddressController,
+              maxLength: 255,
+              maxLines: 2,
+              decoration: _decoration(
+                'Alamat Domisili',
+                Icons.location_on_outlined,
               ),
-              child: const Text(
-                'Alamat domisili, tanggal lahir, jenis kelamin, dan foto profil belum tersedia pada skema akun/API saat ini.',
-                style: TextStyle(fontSize: 12, color: Colors.black54),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _provinceController,
+              maxLength: 100,
+              decoration: _decoration('Provinsi', Icons.map_outlined),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _regencyCityController,
+              maxLength: 100,
+              decoration: _decoration(
+                'Kabupaten/Kota',
+                Icons.location_city_outlined,
               ),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _districtController,
+              maxLength: 100,
+              decoration: _decoration('Kecamatan', Icons.map_outlined),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _villageController,
+              maxLength: 100,
+              decoration: _decoration(
+                'Kelurahan/Desa',
+                Icons.location_on_outlined,
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _postalCodeController,
+              maxLength: 10,
+              keyboardType: TextInputType.number,
+              decoration: _decoration(
+                'Kode Pos',
+                Icons.markunread_mailbox_outlined,
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _dateOfBirthController,
+              readOnly: true,
+              onTap: _isSaving ? null : _selectDateOfBirth,
+              decoration: _decoration(
+                'Tanggal Lahir',
+                Icons.calendar_month_outlined,
+              ).copyWith(suffixIcon: const Icon(Icons.calendar_today_outlined)),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              initialValue: _gender,
+              decoration: _decoration('Jenis Kelamin', Icons.person_outline),
+              items: const [
+                DropdownMenuItem(value: 'laki-laki', child: Text('Laki-laki')),
+                DropdownMenuItem(value: 'perempuan', child: Text('Perempuan')),
+              ],
+              onChanged: _isSaving
+                  ? null
+                  : (value) => setState(() => _gender = value),
             ),
           ],
         ),

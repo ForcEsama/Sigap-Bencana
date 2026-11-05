@@ -14,9 +14,11 @@ class WarningsPage extends StatefulWidget {
   State<WarningsPage> createState() => _WarningsPageState();
 }
 
-enum _WarningTab { all, earlyWarning, activeIncident }
+enum _WarningTab { all, earlyWarning, reportedIncident }
 
 class _WarningsPageState extends State<WarningsPage> {
+  late final WarningService _warningService =
+      widget.service ?? WarningService();
   late Future<List<DisasterWarning>> _warnings = _load();
   final TextEditingController _searchController = TextEditingController();
   _WarningTab _selectedTab = _WarningTab.all;
@@ -24,18 +26,24 @@ class _WarningsPageState extends State<WarningsPage> {
   String _searchQuery = '';
 
   Future<List<DisasterWarning>> _load() async {
-    final warnings = await (widget.service ?? WarningService())
-        .fetchActiveWarnings();
+    final warnings = await _warningService.fetchActiveWarnings();
     final locationAddress = widget.locationAddress;
     if (locationAddress == null || locationAddress.trim().isEmpty) {
       return warnings;
     }
 
-    return warnings
-        .where(
-          (warning) => warning.affectsAdministrativeAddress(locationAddress),
-        )
-        .toList(growable: false);
+    return [...warnings]..sort((first, second) {
+      final firstLocationPriority =
+          first.affectsAdministrativeAddress(locationAddress) ? 1 : 0;
+      final secondLocationPriority =
+          second.affectsAdministrativeAddress(locationAddress) ? 1 : 0;
+      final locationOrder = secondLocationPriority.compareTo(
+        firstLocationPriority,
+      );
+      if (locationOrder != 0) return locationOrder;
+
+      return DisasterWarning.comparePriority(first, second);
+    });
   }
 
   void _reload() {
@@ -161,9 +169,10 @@ class _WarningsPageState extends State<WarningsPage> {
                         ),
                         const SizedBox(width: 10),
                         _TabChip(
-                          label: 'Kejadian Aktif',
-                          selected: _selectedTab == _WarningTab.activeIncident,
-                          onTap: () => _selectTab(_WarningTab.activeIncident),
+                          label: 'Kejadian Tercatat',
+                          selected:
+                              _selectedTab == _WarningTab.reportedIncident,
+                          onTap: () => _selectTab(_WarningTab.reportedIncident),
                         ),
                       ],
                     ),
@@ -205,13 +214,16 @@ class _WarningsPageState extends State<WarningsPage> {
                   final warnings = _filterWarnings(snapshot.data ?? []);
                   if (warnings.isEmpty) {
                     final isIncidentTab =
-                        _selectedTab == _WarningTab.activeIncident;
+                        _selectedTab == _WarningTab.reportedIncident;
                     return _Status(
                       icon: isIncidentTab
                           ? Icons.article_outlined
                           : Icons.notifications_none,
                       text: isIncidentTab
-                          ? 'Belum ada sumber laporan kejadian aktif yang tersedia.'
+                          ? _warningService.incidentSourceStatus ==
+                                    'unavailable'
+                                ? 'Catatan kejadian BNPB belum dapat dimuat. Peringatan BMKG tetap tersedia jika ada.'
+                                : 'Belum ada catatan kejadian terbaru dari BNPB.'
                           : _searchQuery.isNotEmpty ||
                                 _selectedDisasterType != null
                           ? 'Tidak ada peringatan yang cocok dengan pencarian atau filter.'
@@ -219,23 +231,44 @@ class _WarningsPageState extends State<WarningsPage> {
                     );
                   }
 
-                  return ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                    itemCount: warnings.length,
-                    separatorBuilder: (context, index) =>
-                        const SizedBox(height: 12),
-                    itemBuilder: (context, index) => _WarningCard(
-                      warning: warnings[index],
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => WarningDetailPage(
-                            warningId: warnings[index].id,
-                            initialWarning: warnings[index],
-                            service: widget.service,
+                  return Column(
+                    children: [
+                      if (_warningService.incidentSourceStatus ==
+                              'unavailable' ||
+                          _warningService.incidentSourceStatus == 'stale')
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                          child: Text(
+                            _warningService.incidentSourceStatus == 'stale'
+                                ? 'Catatan BNPB memakai data tersimpan; pembaruan sumber gagal.'
+                                : 'Catatan kejadian BNPB belum dapat dihubungi. Peringatan BMKG tetap tersedia jika ada.',
+                            style: const TextStyle(
+                              color: Color(0xFF855A00),
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      Expanded(
+                        child: ListView.separated(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                          itemCount: warnings.length,
+                          separatorBuilder: (context, index) =>
+                              const SizedBox(height: 12),
+                          itemBuilder: (context, index) => _WarningCard(
+                            warning: warnings[index],
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => WarningDetailPage(
+                                  warningId: warnings[index].id,
+                                  initialWarning: warnings[index],
+                                  service: widget.service,
+                                ),
+                              ),
+                            ),
                           ),
                         ),
                       ),
-                    ),
+                    ],
                   );
                 },
               ),
@@ -247,11 +280,12 @@ class _WarningsPageState extends State<WarningsPage> {
   }
 
   List<DisasterWarning> _filterWarnings(List<DisasterWarning> warnings) {
-    if (_selectedTab == _WarningTab.activeIncident) {
-      return const [];
-    }
-
     return warnings.where((warning) {
+      final matchesTab = switch (_selectedTab) {
+        _WarningTab.all => true,
+        _WarningTab.earlyWarning => warning.isOfficialWarning,
+        _WarningTab.reportedIncident => warning.isRecordedIncident,
+      };
       final matchesType =
           _selectedDisasterType == null ||
           warning.disasterType.toLowerCase() ==
@@ -259,7 +293,7 @@ class _WarningsPageState extends State<WarningsPage> {
       final searchableText =
           '${warning.title} ${warning.disasterType} ${warning.affectedArea} ${warning.source}'
               .toLowerCase();
-      return matchesType && searchableText.contains(_searchQuery);
+      return matchesTab && matchesType && searchableText.contains(_searchQuery);
     }).toList();
   }
 
@@ -381,9 +415,15 @@ class _WarningCard extends StatelessWidget {
                       runSpacing: 6,
                       children: [
                         _Badge(
-                          label: 'Peringatan Dini',
-                          background: const Color(0xFFFFCDD2),
-                          foreground: const Color(0xFFC00020),
+                          label: warning.isOfficialWarning
+                              ? 'Peringatan Dini'
+                              : 'Kejadian Tercatat',
+                          background: warning.isOfficialWarning
+                              ? const Color(0xFFFFCDD2)
+                              : const Color(0xFFE7EAF0),
+                          foreground: warning.isOfficialWarning
+                              ? const Color(0xFFC00020)
+                              : const Color(0xFF354052),
                         ),
                         _Badge(
                           label: warning.disasterType,
@@ -393,6 +433,16 @@ class _WarningCard extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 8),
+                    if (warning.incidentCount != null) ...[
+                      Text(
+                        'Jumlah kejadian dalam catatan BNPB: ${warning.incidentCount}',
+                        style: const TextStyle(
+                          color: Colors.black54,
+                          fontSize: 12,
+                        ),
+                      ),
+                      const SizedBox(height: 7),
+                    ],
                     Text(
                       warning.title,
                       maxLines: 3,
@@ -465,9 +515,13 @@ class _WarningCard extends StatelessWidget {
               ),
               const SizedBox(width: 6),
               _Badge(
-                label: 'Aktif',
-                background: const Color(0xFFE4F7E8),
-                foreground: const Color(0xFF237A38),
+                label: warning.isOfficialWarning ? 'Aktif' : 'Tercatat',
+                background: warning.isOfficialWarning
+                    ? const Color(0xFFE4F7E8)
+                    : const Color(0xFFE7EAF0),
+                foreground: warning.isOfficialWarning
+                    ? const Color(0xFF237A38)
+                    : const Color(0xFF354052),
               ),
             ],
           ),

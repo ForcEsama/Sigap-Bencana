@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../config/api_config.dart';
@@ -74,29 +75,96 @@ class SosService {
         throw const SosApiException(500, 'Respons riwayat SOS tidak valid.');
       }
 
-      await OfflineCache.write(
-        'sos_page_$page',
-        response,
-        accountScoped: true,
-        maxCharacters: 250000,
-      );
+      try {
+        await OfflineCache.write(
+          'sos_page_$page',
+          response,
+          accountScoped: true,
+          maxCharacters: 250000,
+        );
+      } catch (error, stackTrace) {
+        debugPrint('Gagal menyimpan cache riwayat SOS: $error\n$stackTrace');
+      }
       return _sosRequestPageFrom(response, page);
-    } on SosApiException catch (error) {
-      if (error.statusCode != 0) rethrow;
+    } on SosApiException {
       final cached = await OfflineCache.read(
         'sos_page_$page',
         accountScoped: true,
       );
-      if (cached is! Map<String, dynamic>) rethrow;
+      if (cached is Map<String, dynamic>) {
+        lastReadFromCache = true;
+        return _sosRequestPageFrom(cached, page);
+      }
 
-      lastReadFromCache = true;
-      return _sosRequestPageFrom(cached, page);
+      final notificationRequests = await _requestsFromNotificationCache();
+      if (notificationRequests.isNotEmpty) {
+        lastReadFromCache = true;
+        return SosRequestPage(
+          requests: notificationRequests,
+          currentPage: page,
+          lastPage: page,
+        );
+      }
+
+      rethrow;
+    } catch (error, stackTrace) {
+      debugPrint('Gagal memproses riwayat SOS: $error\n$stackTrace');
+
+      final cached = await _requestsFromNotificationCache();
+      if (cached.isNotEmpty) {
+        lastReadFromCache = true;
+        return SosRequestPage(
+          requests: cached,
+          currentPage: page,
+          lastPage: page,
+        );
+      }
+
+      throw SosApiException(
+        500,
+        'Riwayat SOS belum dapat dimuat. Tarik halaman ke bawah untuk mencoba lagi.',
+      );
+    }
+  }
+
+  Future<List<SosRequest>> _requestsFromNotificationCache() async {
+    try {
+      final cached = await OfflineCache.read(
+        'notifications_all',
+        accountScoped: true,
+      );
+      if (cached is! List) return const [];
+
+      final requestsById = <int, SosRequest>{};
+      for (final notification in cached.whereType<Map<String, dynamic>>()) {
+        final relatedRequest = notification['related_sos_request'];
+        if (relatedRequest is! Map<String, dynamic>) continue;
+
+        final request = SosRequest.fromJson(relatedRequest);
+        requestsById[request.id] = request;
+      }
+
+      final requests = requestsById.values.toList()
+        ..sort((first, second) {
+          return (second.requestedAt ?? DateTime(1970)).compareTo(
+            first.requestedAt ?? DateTime(1970),
+          );
+        });
+
+      return requests;
+    } catch (error, stackTrace) {
+      debugPrint(
+        'Gagal membaca snapshot SOS dari cache notifikasi: $error\n$stackTrace',
+      );
+      return const [];
     }
   }
 
   SosRequestPage _sosRequestPageFrom(Map<String, dynamic> response, int page) {
-    final rows = response['data'];
-    final meta = response['meta'];
+    final rawRows = response['data'];
+    final rows = rawRows is List ? rawRows : const <Object?>[];
+    final rawMeta = response['meta'];
+    final meta = rawMeta is Map<String, dynamic> ? rawMeta : null;
     return SosRequestPage(
       requests: rows
           .whereType<Map<String, dynamic>>()

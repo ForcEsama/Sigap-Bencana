@@ -5,7 +5,6 @@ namespace App\Http\Resources;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 
 class NewsResource extends JsonResource
 {
@@ -25,8 +24,7 @@ class NewsResource extends JsonResource
             'category' => $this->category,
             'source' => $this->source,
             'source_url' => $this->source_url,
-            'is_simulation' => Str::startsWith($this->title, 'Simulasi Berita:')
-                || Str::startsWith($this->source ?? '', 'Contoh konten'),
+            'is_simulation' => $this->isSimulation(),
             'published_at' => $this->published_at?->toIso8601String(),
         ];
     }
@@ -59,5 +57,15 @@ class NewsResource extends JsonResource
         return $isPublicNewsImage
             ? asset($normalizedPath)
             : Storage::disk('public')->url($imagePath);
+    }
+
+    private function isSimulation(): bool
+    {
+        if (array_key_exists('is_simulation', $this->resource->getAttributes())) {
+            return (bool) $this->is_simulation;
+        }
+
+        return str_starts_with((string) $this->title, 'Simulasi Berita:')
+            || str_starts_with((string) $this->source, 'Contoh konten');
     }
 }

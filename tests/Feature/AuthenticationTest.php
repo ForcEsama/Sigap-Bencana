@@ -25,6 +25,34 @@ class AuthenticationTest extends TestCase
             ->assertRedirect('/login');
     }
 
+    public function test_authenticated_home_links_to_the_feature_pages_and_real_notifications(): void
+    {
+        $response = $this->actingAs(User::factory()->create())
+            ->get(route('home'))
+            ->assertOk();
+
+        foreach ([
+            'risk-map.index',
+            'news-education.index',
+            'disaster-alerts.index',
+            'reports.create',
+            'reports.index',
+            'sos.create',
+            'evacuation-posts.index',
+            'emergency-contacts.index',
+            'notifications.index',
+            'profile.edit',
+        ] as $routeName) {
+            $response->assertSee('href="'.route($routeName).'"', false);
+        }
+
+        $response->assertDontSee('href="#peta"', false)
+            ->assertDontSee('href="#berita"', false)
+            ->assertDontSee('href="#peringatan"', false)
+            ->assertDontSee('href="#evakuasi"', false)
+            ->assertDontSee('href="#kontak"', false);
+    }
+
     public function test_web_registration_creates_an_account_without_verifying_email(): void
     {
         $response = $this->post('/register', [
@@ -65,6 +93,37 @@ class AuthenticationTest extends TestCase
         $this->get('/home')->assertOk();
     }
 
+    public function test_remembered_web_login_restores_authentication_without_the_session(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'remembered@example.test',
+            'password' => Hash::make('Password123'),
+        ]);
+
+        $loginResponse = $this->post('/login', [
+            'identity' => $user->email,
+            'password' => 'Password123',
+            'remember' => '1',
+        ])->assertRedirect('/home');
+
+        $user->refresh();
+        $this->assertNotNull($user->getRememberToken());
+
+        $recallerName = Auth::guard('web')->getRecallerName();
+        $loginResponse->assertCookieNotExpired($recallerName);
+        $recallerCookie = $loginResponse->getCookie($recallerName);
+        $this->assertNotNull($recallerCookie);
+
+        $this->flushSession();
+        Auth::forgetGuards();
+
+        $this->withCookie($recallerName, $recallerCookie->getValue())
+            ->get('/')
+            ->assertRedirect('/home');
+
+        $this->assertAuthenticatedAs($user);
+    }
+
     public function test_web_login_rejects_an_incorrect_password(): void
     {
         $user = User::factory()->create([
@@ -87,10 +146,10 @@ class AuthenticationTest extends TestCase
 
         $this->actingAs($user)
             ->post('/logout')
-            ->assertRedirect('/login');
+            ->assertRedirect(route('landing'));
 
         $this->assertGuest();
-        $this->get('/home')->assertRedirect('/login');
+        $this->get('/home')->assertRedirect(route('login'));
     }
 
     public function test_mobile_registration_creates_an_account(): void
@@ -143,6 +202,26 @@ class AuthenticationTest extends TestCase
         ])->assertUnauthorized();
 
         $this->assertDatabaseCount('personal_access_tokens', 0);
+    }
+
+    public function test_mobile_login_is_rate_limited_after_repeated_attempts(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'mobile-throttle@example.test',
+            'password' => Hash::make('Password123'),
+        ]);
+
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $this->postJson('/api/login', [
+                'email' => $user->email,
+                'password' => 'WrongPassword',
+            ])->assertUnauthorized();
+        }
+
+        $this->postJson('/api/login', [
+            'email' => $user->email,
+            'password' => 'WrongPassword',
+        ])->assertTooManyRequests();
     }
 
     public function test_mobile_logout_revokes_the_current_token(): void

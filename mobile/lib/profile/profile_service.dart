@@ -57,6 +57,14 @@ class ProfileService {
     required String name,
     required String email,
     required String phone,
+    required String domicileAddress,
+    required String province,
+    required String regencyCity,
+    required String district,
+    required String village,
+    required String postalCode,
+    required String dateOfBirth,
+    required String gender,
   }) async {
     final token = await AuthService.getToken();
     if (token == null || token.isEmpty) {
@@ -72,6 +80,14 @@ class ProfileService {
               'name': name,
               'email': email,
               'phone': phone.isEmpty ? null : phone,
+              'domicile_address': _nullableValue(domicileAddress),
+              'province': _nullableValue(province),
+              'regency_city': _nullableValue(regencyCity),
+              'district': _nullableValue(district),
+              'village': _nullableValue(village),
+              'postal_code': _nullableValue(postalCode),
+              'date_of_birth': _nullableValue(dateOfBirth),
+              'gender': _nullableValue(gender),
             }),
           )
           .timeout(const Duration(seconds: 15));
@@ -92,6 +108,11 @@ class ProfileService {
           throw ProfileServiceException(firstError.first.toString());
         }
         throw const ProfileServiceException('Periksa kembali data profil.');
+      }
+      if (response.statusCode == 503) {
+        throw const ProfileServiceException(
+          'Profil tambahan belum dapat disimpan karena database server belum diperbarui.',
+        );
       }
       if (response.statusCode != 200) {
         throw const ProfileServiceException(
@@ -123,4 +144,10 @@ class ProfileService {
     'Content-Type': 'application/json',
     'Authorization': 'Bearer $token',
   };
+
+  static String? _nullableValue(String value) {
+    final trimmedValue = value.trim();
+
+    return trimmedValue.isEmpty ? null : trimmedValue;
+  }
 }

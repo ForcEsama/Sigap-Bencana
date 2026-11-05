@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:mobile/warnings/disaster_warning.dart';
 import 'package:mobile/warnings/warning_service.dart';
 
 void main() {
@@ -43,7 +44,7 @@ void main() {
       final warnings = await WarningService(client: client)
           .fetchActiveWarnings();
 
-      expect(requestedUri.path, endsWith('/api/v1/warnings'));
+      expect(requestedUri.path, endsWith('/api/v1/mobile/warnings'));
       expect(warnings.single.title, 'Hujan Lebat Kepulauan Riau');
       expect(warnings.single.urgency, 'Immediate');
       expect(warnings.single.severity, 'Severe');
@@ -52,4 +53,29 @@ void main() {
       expect(warnings.single.updatedAt, isNotNull);
     },
   );
+
+  test('matches province warnings when the GPS address includes a postal code', () {
+    final warning = DisasterWarning(
+      id: 1,
+      title: 'Hujan lebat di Sumatera Barat',
+      disasterType: 'Hujan Lebat dan Petir',
+      description: 'Peringatan resmi BMKG.',
+      severity: 'Moderate',
+      urgency: 'Immediate',
+      affectedArea: 'Sumatera Barat',
+      source: 'BMKG',
+      sourceUrl: 'https://www.bmkg.go.id/alerts/nowcast/id/test_alert.xml',
+      status: 'published',
+      startsAt: DateTime(2026, 10, 26, 1),
+      expiresAt: DateTime(2026, 10, 26, 4),
+    );
+
+    expect(
+      warning.affectsAdministrativeAddress(
+        'Jl. Kijang III No.3, Air Tawar Barat, Padang Utara, '
+        'Kota Padang, Sumatera Barat 25173, Indonesia',
+      ),
+      isTrue,
+    );
+  });
 }

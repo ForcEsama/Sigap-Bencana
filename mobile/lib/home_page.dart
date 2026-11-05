@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 
+import 'admin/admin_dashboard_page.dart';
+import 'evacuation/evacuation_page.dart';
+import 'field/field_dashboard_page.dart';
+import 'guest_access_page.dart';
 import 'news/news_article.dart';
 import 'news/news_detail_page.dart';
 import 'news/news_service.dart';
@@ -8,6 +12,7 @@ import 'profile/profile_page.dart';
 import 'news/news_page.dart';
 import 'notifications/notification_page.dart';
 import 'risk_map/risk_map_page.dart';
+import 'reports/report_form_page.dart';
 import 'reports/report_list_page.dart';
 import 'sos/sos_activation_page.dart';
 import 'services/auth_service.dart';
@@ -18,8 +23,14 @@ import 'warnings/warning_service.dart';
 import 'warnings/warnings_page.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({this.offlineMode = false, this.onRetryConnection, super.key});
+  const HomePage({
+    this.guestMode = false,
+    this.offlineMode = false,
+    this.onRetryConnection,
+    super.key,
+  });
 
+  final bool guestMode;
   final bool offlineMode;
   final VoidCallback? onRetryConnection;
 
@@ -32,6 +43,7 @@ class _HomePageState extends State<HomePage> {
   static const pink = Color(0xFFFFEEF1);
 
   String userName = 'Pengguna';
+  String? _userRole;
   CurrentLocation? _currentLocation;
   bool _isDetectingLocation = false;
   final NewsService _newsService = NewsService();
@@ -66,7 +78,126 @@ class _HomePageState extends State<HomePage> {
 
     setState(() {
       userName = user?['name']?.toString() ?? 'Pengguna';
+      _userRole = user?['role']?.toString();
     });
+  }
+
+  Widget _roleDashboardShortcut() {
+    if (widget.guestMode) {
+      return const SizedBox.shrink();
+    }
+
+    final role = _userRole;
+    if (role != 'admin' && role != 'petugas_lapangan') {
+      return const SizedBox.shrink();
+    }
+
+    final isAdmin = role == 'admin';
+    final title = isAdmin ? 'Dashboard Admin' : 'Dashboard Petugas';
+    final description = isAdmin
+        ? 'Kelola laporan kejadian dan permintaan bantuan.'
+        : 'Lihat tugas lapangan yang ditugaskan kepada Anda.';
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFFFFD0D8)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFEEF1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                isAdmin ? Icons.admin_panel_settings : Icons.assignment,
+                color: red,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(description, style: const TextStyle(fontSize: 10)),
+                ],
+              ),
+            ),
+            const SizedBox(width: 6),
+            FilledButton(
+              onPressed: _openRoleDashboard,
+              style: FilledButton.styleFrom(
+                backgroundColor: red,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                visualDensity: VisualDensity.compact,
+              ),
+              child: const Text('Buka', style: TextStyle(fontSize: 11)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _openRoleDashboard() {
+    final Widget? dashboard = switch (_userRole) {
+      'admin' => AdminDashboardPage(offlineMode: widget.offlineMode),
+      'petugas_lapangan' => FieldDashboardPage(offlineMode: widget.offlineMode),
+      _ => null,
+    };
+    if (dashboard == null) return;
+
+    Navigator.of(context)
+        .push(MaterialPageRoute<void>(builder: (_) => dashboard));
+  }
+
+  void _openGuestSection(AppDestination destination) {
+    if (destination == AppDestination.home ||
+        destination == AppDestination.map) {
+      return;
+    }
+
+    final (title, description, icon) = switch (destination) {
+      AppDestination.sos => (
+        'SOS',
+        'Mode guest dapat melihat informasi dan kontak darurat. Login diperlukan untuk mengirim SOS dan melihat status permintaan.',
+        Icons.sos,
+      ),
+      AppDestination.notifications => (
+        'Notifikasi',
+        'Notifikasi aktivitas, laporan, dan SOS bersifat pribadi. Login untuk melihat notifikasi akun Anda.',
+        Icons.notifications_outlined,
+      ),
+      AppDestination.profile => (
+        'Profil',
+        'Data pribadi, lokasi tersimpan, dan preferensi akun memerlukan login. Informasi publik tetap bisa dibuka dari halaman ini.',
+        Icons.person_outline,
+      ),
+      AppDestination.home || AppDestination.map => ('', '', Icons.info),
+    };
+
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => GuestAccessPage(
+          title: title,
+          description: description,
+          icon: icon,
+          selectedDestination: destination,
+        ),
+      ),
+    );
   }
 
   Future<void> _loadLatestNews() async {
@@ -101,7 +232,9 @@ class _HomePageState extends State<HomePage> {
       _warningError = null;
     });
     try {
-      final warnings = await _warningService.fetchActiveWarnings();
+      final warnings = (await _warningService.fetchActiveWarnings())
+          .where((warning) => warning.isOfficialWarning)
+          .toList();
       if (!mounted) return;
       setState(() {
         _activeWarnings = warnings;
@@ -116,6 +249,10 @@ class _HomePageState extends State<HomePage> {
         _isLoadingWarnings = false;
       });
     }
+  }
+
+  Future<void> _refreshHome() async {
+    await Future.wait([_loadLatestNews(), _loadWarnings()]);
   }
 
   Future<void> _detectCurrentLocation() async {
@@ -213,7 +350,8 @@ class _HomePageState extends State<HomePage> {
   void _openArticle(NewsArticle article) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => NewsDetailPage(slug: article.slug),
+        builder: (_) =>
+            NewsDetailPage(slug: article.slug, sourceType: article.sourceType),
       ),
     );
   }
@@ -230,7 +368,8 @@ class _HomePageState extends State<HomePage> {
   void _openWarningDetail(DisasterWarning warning) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => WarningDetailPage(warningId: warning.id),
+        builder: (_) =>
+            WarningDetailPage(warningId: warning.id, initialWarning: warning),
       ),
     );
   }
@@ -507,15 +646,25 @@ class _HomePageState extends State<HomePage> {
             break;
           case AppDestination.map:
             Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => const RiskMapPage()),
+              MaterialPageRoute<void>(
+                builder: (_) => RiskMapPage(guestMode: widget.guestMode),
+              ),
             );
             break;
           case AppDestination.profile:
+            if (widget.guestMode) {
+              _openGuestSection(destination);
+              break;
+            }
             Navigator.of(context).push(
               MaterialPageRoute<void>(builder: (_) => const ProfilePage()),
             );
             break;
           case AppDestination.sos:
+            if (widget.guestMode) {
+              _openGuestSection(destination);
+              break;
+            }
             Navigator.of(context).push(
               MaterialPageRoute<void>(
                 builder: (_) => const SosActivationPage(),
@@ -523,6 +672,10 @@ class _HomePageState extends State<HomePage> {
             );
             break;
           case AppDestination.notifications:
+            if (widget.guestMode) {
+              _openGuestSection(destination);
+              break;
+            }
             Navigator.of(context).push(
               MaterialPageRoute<void>(builder: (_) => const NotificationPage()),
             );
@@ -587,145 +740,196 @@ class _HomePageState extends State<HomePage> {
         child: Column(
           children: [
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Row(
-                      children: [
-                        Image.asset(
-                          'assets/images/logo.png',
-                          width: 95,
-                          height: 44,
-                          fit: BoxFit.contain,
-                        ),
-                        const Spacer(),
-                        _currentLocationButton(),
-                      ],
-                    ),
+              child: RefreshIndicator(
+                color: red,
+                onRefresh: _refreshHome,
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          Image.asset(
+                            'assets/images/logo.png',
+                            width: 95,
+                            height: 44,
+                            fit: BoxFit.contain,
+                          ),
+                          const Spacer(),
+                          _currentLocationButton(),
+                        ],
+                      ),
 
-                    if (widget.offlineMode) ...[
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFFF4D6),
-                          borderRadius: BorderRadius.circular(8),
+                      _roleDashboardShortcut(),
+
+                      if (widget.guestMode) ...[
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFFFFD0D8)),
+                          ),
+                          child: const Text(
+                            'Mode tamu: informasi publik dapat dibuka tanpa akun. Masuk untuk memakai SOS dan mengirim laporan.',
+                            style: TextStyle(fontSize: 11, height: 1.35),
+                          ),
                         ),
-                        child: Row(
-                          children: [
-                            const Expanded(
-                              child: Text(
-                                'Mode offline: informasi adalah data terakhir yang tersimpan. SOS/laporan belum dianggap terkirim sampai server mengonfirmasi.',
-                                style: TextStyle(fontSize: 11, height: 1.35),
+                      ],
+
+                      if (widget.offlineMode) ...[
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFF4D6),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              const Expanded(
+                                child: Text(
+                                  'Mode offline: informasi adalah data terakhir yang tersimpan. SOS/laporan belum dianggap terkirim sampai server mengonfirmasi.',
+                                  style: TextStyle(fontSize: 11, height: 1.35),
+                                ),
                               ),
+                              IconButton(
+                                onPressed: widget.onRetryConnection,
+                                tooltip: 'Coba sambungkan kembali',
+                                icon: const Icon(Icons.refresh),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+
+                      const SizedBox(height: 12),
+
+                      _warningBanner(),
+
+                      const SizedBox(height: 12),
+
+                      const Text(
+                        'Layanan Utama',
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+
+                      const SizedBox(height: 8),
+
+                      GridView.count(
+                        crossAxisCount: 2,
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        mainAxisSpacing: 8,
+                        crossAxisSpacing: 8,
+                        childAspectRatio: 2.05,
+                        children: [
+                          _serviceCard(
+                            'Peringatan\nBencana',
+                            Icons.warning_rounded,
+                            const Color(0xFFFFC9CE),
+                            red,
+                            onTap: _openWarnings,
+                          ),
+                          _serviceCard(
+                            'Lapor\nKejadian',
+                            Icons.add_home_work,
+                            const Color(0xFFFFEDB7),
+                            const Color(0xFFC68B00),
+                            onTap: () {
+                              if (widget.guestMode) {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute<void>(
+                                    builder: (_) =>
+                                        const ReportFormPage(guestMode: true),
+                                  ),
+                                );
+                                return;
+                              }
+                              Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => const ReportListPage(),
+                                ),
+                              );
+                            },
+                          ),
+                          _serviceCard(
+                            'Berita &\nEdukasi',
+                            Icons.message,
+                            const Color(0xFFAEF8DB),
+                            const Color(0xFF00B88C),
+                            onTap: _openNews,
+                          ),
+                          _serviceCard(
+                            'Tempat\nEvakuasi',
+                            Icons.campaign,
+                            const Color(0xFFF6C6F8),
+                            const Color(0xFFC000D4),
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => const EvacuationPage(),
+                                ),
+                              );
+                            },
+                          ),
+                          if (widget.guestMode)
+                            _serviceCard(
+                              'Kontak\nDarurat',
+                              Icons.phone_in_talk,
+                              const Color(0xFFFFE1E6),
+                              red,
+                              onTap: () =>
+                                  Navigator.of(context)
+                                      .pushNamed('/emergency-contacts'),
                             ),
-                            IconButton(
-                              onPressed: widget.onRetryConnection,
-                              tooltip: 'Coba sambungkan kembali',
-                              icon: const Icon(Icons.refresh),
+                        ],
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      Row(
+                        children: [
+                          const Text(
+                            'Berita Terkini',
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w600,
                             ),
-                          ],
+                          ),
+                          const Spacer(),
+                          TextButton(
+                            onPressed: () =>
+                                _openNews(category: NewsCategory.latest),
+                            child: const Text(
+                              'Lihat Semua',
+                              style: TextStyle(fontSize: 10, color: red),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      _latestNewsSection(),
+
+                      const SizedBox(height: 5),
+
+                      Text(
+                        widget.guestMode
+                            ? 'Jelajahi SIGAP BENCANA sebagai tamu.'
+                            : 'Halo, $userName!',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF77717A),
                         ),
                       ),
                     ],
-
-                    const SizedBox(height: 12),
-
-                    _warningBanner(),
-
-                    const SizedBox(height: 12),
-
-                    const Text(
-                      'Layanan Utama',
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-
-                    const SizedBox(height: 8),
-
-                    GridView.count(
-                      crossAxisCount: 2,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      mainAxisSpacing: 8,
-                      crossAxisSpacing: 8,
-                      childAspectRatio: 2.05,
-                      children: [
-                        _serviceCard(
-                          'Peringatan\nBencana',
-                          Icons.warning_rounded,
-                          const Color(0xFFFFC9CE),
-                          red,
-                          onTap: _openWarnings,
-                        ),
-                        _serviceCard(
-                          'Lapor\nKejadian',
-                          Icons.add_home_work,
-                          const Color(0xFFFFEDB7),
-                          const Color(0xFFC68B00),
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) => const ReportListPage(),
-                              ),
-                            );
-                          },
-                        ),
-                        _serviceCard(
-                          'Berita &\nEdukasi',
-                          Icons.message,
-                          const Color(0xFFAEF8DB),
-                          const Color(0xFF00B88C),
-                          onTap: _openNews,
-                        ),
-                        _serviceCard(
-                          'Tempat\nEvakuasi',
-                          Icons.campaign,
-                          const Color(0xFFF6C6F8),
-                          const Color(0xFFC000D4),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    Row(
-                      children: [
-                        const Text(
-                          'Berita Terkini',
-                          style: TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const Spacer(),
-                        TextButton(
-                          onPressed: () =>
-                              _openNews(category: NewsCategory.latest),
-                          child: const Text(
-                            'Lihat Semua',
-                            style: TextStyle(fontSize: 10, color: red),
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    _latestNewsSection(),
-
-                    const SizedBox(height: 5),
-
-                    Text(
-                      'Halo, $userName!',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Color(0xFF77717A),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),

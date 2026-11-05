@@ -7,9 +7,11 @@ import 'config/api_config.dart';
 import 'services/auth_service.dart';
 import 'register_page.dart';
 import 'login_page.dart';
-import 'home_page.dart';
 import 'profile/profile_page.dart';
 import 'risk_map/risk_map_page.dart';
+import 'services/role_home_page.dart';
+import 'home_page.dart';
+import 'profile/emergency_contact_directory_page.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -87,6 +89,9 @@ class SigapBencanaApp extends StatelessWidget {
       ),
       routes: {
         '/welcome': (_) => const WelcomePage(),
+        '/login': (_) => const LoginPage(),
+        '/register': (_) => const RegisterPage(),
+        '/emergency-contacts': (_) => const EmergencyContactDirectoryPage(),
         '/risk-map': (_) => const RiskMapPage(),
         '/profile': (_) => const ProfilePage(),
       },
@@ -105,6 +110,7 @@ class SessionGate extends StatefulWidget {
 class _SessionGateState extends State<SessionGate> {
   SessionRestoreStatus? _status;
   bool _hasSavedSession = false;
+  String? _savedRole;
 
   @override
   void initState() {
@@ -122,6 +128,7 @@ class _SessionGateState extends State<SessionGate> {
     setState(() {
       _status = status;
       _hasSavedSession = savedUser != null && savedToken?.isNotEmpty == true;
+      _savedRole = savedUser?['role']?.toString();
     });
   }
 
@@ -132,12 +139,27 @@ class _SessionGateState extends State<SessionGate> {
     }
 
     if (_status == SessionRestoreStatus.authenticated) {
-      return const HomePage();
+      return _signedInPage(_savedRole);
     }
 
     if (_status == SessionRestoreStatus.networkUnavailable &&
         _hasSavedSession) {
-      return HomePage(offlineMode: true, onRetryConnection: _restoreSession);
+      final offlinePage = signedInPageForRole(
+        _savedRole,
+        offlineMode: true,
+        onRetryConnection: _restoreSession,
+      );
+      if (offlinePage != null) {
+        return offlinePage;
+      }
+    }
+
+    if (_status == SessionRestoreStatus.networkUnavailable) {
+      return HomePage(
+        guestMode: true,
+        offlineMode: true,
+        onRetryConnection: _restoreSession,
+      );
     }
 
     if (_status == SessionRestoreStatus.signedOut) {
@@ -176,6 +198,10 @@ class _SessionGateState extends State<SessionGate> {
         ),
       ),
     );
+  }
+
+  Widget _signedInPage(String? role) {
+    return signedInPageForRole(role) ?? const WelcomePage();
   }
 }
 
@@ -273,162 +299,138 @@ class WelcomePage extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: pinkBackground,
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  Positioned.fill(
-                    child: ClipPath(
-                      clipper: HeroCurveClipper(),
-                      child: Image.asset(
-                        'assets/images/registration-page-background.png',
-                        fit: BoxFit.cover,
-                        alignment: const Alignment(0, -1),
-                      ),
+      body: DecoratedBox(
+        decoration: const BoxDecoration(
+          image: DecorationImage(
+            image: AssetImage('assets/images/registration-page-background.png'),
+            fit: BoxFit.cover,
+            alignment: Alignment.topCenter,
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              Expanded(
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Image.asset(
+                          'assets/images/SigapBencanaLogo1.png',
+                          width: 275,
+                          height: 183,
+                          fit: BoxFit.contain,
+                        ),
+                        const SizedBox(height: 12),
+                        const Text(
+                          'Informasi, Peringatan\n'
+                          'dan Bantuan Bencana\n'
+                          'untuk Indonesia yang lebih aman.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 18,
+                            height: 1.4,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.black,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  Align(
-                    alignment: Alignment.topCenter,
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Image.asset(
-                            'assets/images/SigapBencanaLogo1.png',
-                            width: 275,
-                            height: 183,
-                            fit: BoxFit.contain,
-                          ),
-                          const SizedBox(height: 12),
-                          const Text(
-                            'Informasi, Peringatan\n'
-                            'dan Bantuan Bencana\n'
-                            'untuk Indonesia yang lebih aman.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 18,
-                              height: 1.4,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.black,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
 
-            // Tombol Masuk, Daftar Akun, dan Tes API
-            Padding(
-              padding: EdgeInsets.fromLTRB(
-                24,
-                18,
-                24,
-                size.height < 700 ? 20 : 28,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  SizedBox(
-                    height: 48,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const LoginPage()),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: red,
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(5),
+              // Tombol Masuk, Daftar Akun, dan Tes API
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                  24,
+                  18,
+                  24,
+                  size.height < 700 ? 20 : 28,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SizedBox(
+                      height: 48,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const LoginPage(),
+                            ),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: red,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(5),
+                          ),
+                        ),
+                        child: const Text(
+                          'Masuk',
+                          style: TextStyle(fontSize: 15),
                         ),
                       ),
-                      child: const Text(
-                        'Masuk',
-                        style: TextStyle(fontSize: 15),
+                    ),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      height: 48,
+                      child: OutlinedButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const RegisterPage(),
+                            ),
+                          );
+                        },
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: red,
+                          backgroundColor: Colors.white,
+                          side: const BorderSide(color: red),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(5),
+                          ),
+                        ),
+                        child: const Text(
+                          'Daftar Akun',
+                          style: TextStyle(fontSize: 15),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  SizedBox(
-                    height: 48,
-                    child: OutlinedButton(
+                    const SizedBox(height: 6),
+                    TextButton.icon(
+                      onPressed: () => testApiConnection(context),
+                      icon: const Icon(Icons.wifi, size: 18),
+                      label: const Text('Tes Koneksi API'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.blueGrey,
+                      ),
+                    ),
+                    TextButton(
                       onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const RegisterPage(),
+                        Navigator.of(context).pushReplacement(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const HomePage(guestMode: true),
                           ),
                         );
                       },
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: red,
-                        backgroundColor: Colors.white,
-                        side: const BorderSide(color: red),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(5),
-                        ),
-                      ),
-                      child: const Text(
-                        'Daftar Akun',
-                        style: TextStyle(fontSize: 15),
-                      ),
+                      child: const Text('Masuk sebagai Guest'),
                     ),
-                  ),
-                  const SizedBox(height: 6),
-                  TextButton.icon(
-                    onPressed: () => testApiConnection(context),
-                    icon: const Icon(Icons.wifi, size: 18),
-                    label: const Text('Tes Koneksi API'),
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.blueGrey,
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
-  }
-}
-
-class HeroCurveClipper extends CustomClipper<Path> {
-  @override
-  Path getClip(Size size) {
-    final path = Path()
-      ..moveTo(0, size.height * 0.05)
-      ..quadraticBezierTo(
-        size.width * 0.25,
-        -size.height * 0.02,
-        size.width * 0.48,
-        size.height * 0.07,
-      )
-      ..quadraticBezierTo(
-        size.width * 0.76,
-        size.height * 0.17,
-        size.width,
-        size.height * 0.02,
-      )
-      ..lineTo(size.width, size.height)
-      ..lineTo(0, size.height)
-      ..close();
-
-    return path;
-  }
-
-  @override
-  bool shouldReclip(covariant CustomClipper<Path> oldClipper) {
-    return false;
   }
 }

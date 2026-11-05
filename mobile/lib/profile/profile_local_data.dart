@@ -5,7 +5,6 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 class ProfileLocalData {
   static const FlutterSecureStorage _storage = FlutterSecureStorage();
   static const String _locationsKey = 'profile_saved_locations';
-  static const String _contactsKey = 'profile_emergency_contacts';
   static const String _notificationPreferencesKey =
       'profile_notification_preferences';
 
@@ -22,12 +21,6 @@ class ProfileLocalData {
     List<Map<String, dynamic>> locations,
   ) => _writeList(_locationsKey, locations);
 
-  static Future<List<Map<String, dynamic>>> readEmergencyContacts() =>
-      _readList(_contactsKey);
-
-  static Future<void> saveEmergencyContacts(
-    List<Map<String, dynamic>> contacts,
-  ) => _writeList(_contactsKey, contacts);
 
   static Future<Map<String, bool>> readNotificationPreferences() async {
     try {

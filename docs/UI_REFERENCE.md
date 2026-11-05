@@ -1,6 +1,6 @@
 # Referensi Visual UI SIGAP BENCANA
 
-Dokumen ini memetakan semua halaman PNG pada paket mockup ke layar produk. Contact sheet yang diperiksa: 3 mobile dan 4 desktop. PNG resolusi penuh diperiksa untuk layar yang sudah memiliki padanan implementasi (mobile 03–07 dan desktop 01–05). Untuk halaman lain, pemetaan ini berdasarkan contact sheet; buka PNG individual resolusi penuh sebelum mengimplementasikan halaman tersebut.
+Dokumen ini memetakan semua halaman PNG pada paket mockup ke layar produk. Contact sheet yang diperiksa: 3 mobile dan 4 desktop. PNG resolusi penuh diperiksa untuk layar yang sudah memiliki padanan implementasi (mobile 03–07, 12 dan desktop 01–05). Untuk halaman lain, pemetaan ini berdasarkan contact sheet; buka PNG individual resolusi penuh sebelum mengimplementasikan halaman tersebut.
 
 ## Aturan penggunaan
 
@@ -27,7 +27,7 @@ Sumber menurut `docs/reference/README.md`: `Mockup Sigap Bencana(1).pdf`. Total 
 | 09 | [page_09.png](reference/mobile_mockup/page_09.png) | Aktifkan SOS | Peta diredupkan, tombol SOS yang ditahan 3 detik dan tombol batal. | Belum ada alur SOS. |
 | 10 | [page_10.png](reference/mobile_mockup/page_10.png) | Notifikasi | Filter Semua/Peringatan/Informasi/Aktivitas, kartu bertipe dan waktu. | Belum ada screen/API notifikasi. |
 | 11 | [page_11.png](reference/mobile_mockup/page_11.png) | Profil Saya / menu | Identitas akun, Data Pribadi, Lokasi Tersimpan, Preferensi, Kontak Darurat Saya, Riwayat, Bantuan, Tentang. | Belum ada screen profil. |
-| 12 | [page_12.png](reference/mobile_mockup/page_12.png) | Tempat Evakuasi | Peta dan daftar lokasi dengan jarak serta kapasitas/status. | Belum ada screen/API evakuasi. |
+| 12 | [page_12.png](reference/mobile_mockup/page_12.png) | Tempat Evakuasi | Peta OSM, pencarian/filter, tombol lokasi, dan daftar lokasi yang dapat ditarik dengan jarak serta kapasitas/status. | `mobile/lib/evacuation/evacuation_page.dart`; memakai `evacuation_posts` melalui API Sanctum. |
 | 13 | [page_13.png](reference/mobile_mockup/page_13.png) | Pilih jenis SOS | Lima pilihan jenis darurat dan tombol lanjut. Daftar final belum disepakati. | Belum ada alur SOS. |
 | 14 | [page_14.png](reference/mobile_mockup/page_14.png) | Status SOS: dikirim/menunggu | ID SOS, waktu, status menunggu konfirmasi dan timeline. | Belum ada alur SOS/API. Status harus dibedakan dari dispatch aktual. |
 | 15 | [page_15.png](reference/mobile_mockup/page_15.png) | Data pribadi | Profil, kontak, alamat domisili, tanggal lahir, gender, aksi edit. | Belum ada screen/API profil. |

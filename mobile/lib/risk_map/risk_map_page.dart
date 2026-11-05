@@ -2,13 +2,16 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import '../guest_access_page.dart';
 import '../notifications/notification_page.dart';
 import '../profile/profile_page.dart';
 import '../sos/sos_activation_page.dart';
 import '../widgets/app_bottom_navigation.dart';
 
 class RiskMapPage extends StatelessWidget {
-  const RiskMapPage({super.key});
+  const RiskMapPage({this.guestMode = false, super.key});
+
+  final bool guestMode;
 
   static const Color _pink = Color(0xFFFFEEF1);
 
@@ -20,20 +23,64 @@ class RiskMapPage extends StatelessWidget {
       case AppDestination.map:
         break;
       case AppDestination.profile:
+        if (guestMode) {
+          _openGuestSection(context, destination);
+          break;
+        }
         Navigator.of(context)
             .push(MaterialPageRoute<void>(builder: (_) => const ProfilePage()));
         break;
       case AppDestination.sos:
+        if (guestMode) {
+          _openGuestSection(context, destination);
+          break;
+        }
         Navigator.of(context).push(
           MaterialPageRoute<void>(builder: (_) => const SosActivationPage()),
         );
         break;
       case AppDestination.notifications:
+        if (guestMode) {
+          _openGuestSection(context, destination);
+          break;
+        }
         Navigator.of(context).push(
           MaterialPageRoute<void>(builder: (_) => const NotificationPage()),
         );
         break;
     }
+  }
+
+  void _openGuestSection(BuildContext context, AppDestination destination) {
+    final (title, description, icon) = switch (destination) {
+      AppDestination.sos => (
+        'SOS',
+        'Login diperlukan untuk mengirim permintaan SOS dan melihat status akun. Kontak darurat tetap dapat dibuka sebagai guest.',
+        Icons.sos,
+      ),
+      AppDestination.notifications => (
+        'Notifikasi',
+        'Notifikasi laporan dan SOS hanya dapat dilihat oleh pemilik akun.',
+        Icons.notifications_outlined,
+      ),
+      AppDestination.profile => (
+        'Profil',
+        'Data pribadi, lokasi tersimpan, serta preferensi akun memerlukan login.',
+        Icons.person_outline,
+      ),
+      AppDestination.home || AppDestination.map => ('', '', Icons.info),
+    };
+
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => GuestAccessPage(
+          title: title,
+          description: description,
+          icon: icon,
+          selectedDestination: destination,
+        ),
+      ),
+    );
   }
 
   void _showLayerInfo(BuildContext context) {
@@ -151,6 +198,12 @@ class RiskMapPage extends StatelessWidget {
                 ],
               ),
             ),
+            Positioned(
+              left: 12,
+              right: 12,
+              bottom: 12,
+              child: _riskLegendCard(),
+            ),
           ],
         ),
       ),
@@ -158,6 +211,94 @@ class RiskMapPage extends StatelessWidget {
         selected: AppDestination.map,
         onSelect: (destination) => _selectDestination(context, destination),
       ),
+    );
+  }
+
+  Widget _riskLegendCard() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x1F000000),
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            'Legenda Zona Risiko SIGAP BENCANA',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 16,
+            runSpacing: 10,
+            children: const [
+              _RiskLegendItem(color: Color(0xFFDC2626), label: 'Risiko tinggi'),
+              _RiskLegendItem(color: Color(0xFFF59E0B), label: 'Risiko sedang'),
+              _RiskLegendItem(color: Color(0xFF059669), label: 'Risiko rendah'),
+              _RiskLegendItem(
+                color: Color(0xFF64748B),
+                label: 'Tingkat lain/tidak dikenali',
+              ),
+              _RiskLegendItem(
+                color: Color(0xFF64748B),
+                label: 'Radius perkiraan bila tersedia',
+                outlined: true,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'Simbol dan warna membantu membedakan kategori; radius bukan batas wilayah resmi.',
+            style: TextStyle(fontSize: 10, color: Color(0xFF6B7280)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RiskLegendItem extends StatelessWidget {
+  const _RiskLegendItem({
+    required this.color,
+    required this.label,
+    this.outlined = false,
+  });
+
+  final Color color;
+  final String label;
+  final bool outlined;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(
+            color: outlined ? Colors.white : color,
+            shape: BoxShape.circle,
+            border: outlined ? Border.all(color: color, width: 2) : null,
+          ),
+        ),
+        const SizedBox(width: 7),
+        Flexible(
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 12, color: Color(0xFF374151)),
+          ),
+        ),
+      ],
     );
   }
 }

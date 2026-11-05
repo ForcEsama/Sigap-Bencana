@@ -2,10 +2,9 @@
 
 namespace App\Http\Controllers\Api;
 
-
-use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\UserRole;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -51,7 +50,7 @@ class AuthController extends Controller
             ],
         ], 201);
     }
-    
+
     public function login(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -63,17 +62,23 @@ class AuthController extends Controller
             ->first();
 
         if (
-            !$user ||
-            !Hash::check($validated['password'], $user->password)
+            ! $user ||
+            ! Hash::check($validated['password'], $user->password)
         ) {
             return response()->json([
                 'message' => 'Email atau password salah.',
             ], 401);
         }
 
-        if (!$user->is_active) {
+        if (! $user->is_active) {
             return response()->json([
                 'message' => 'Akun sedang dinonaktifkan.',
+            ], 403);
+        }
+
+        if (UserRole::tryFrom($user->role) === null) {
+            return response()->json([
+                'message' => 'Role akun tidak dikenali. Hubungi administrator.',
             ], 403);
         }
 
@@ -102,5 +107,4 @@ class AuthController extends Controller
             'message' => 'Logout berhasil.',
         ]);
     }
-
 }

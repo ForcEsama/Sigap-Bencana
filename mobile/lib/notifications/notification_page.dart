@@ -77,7 +77,12 @@ class _NotificationPageState extends State<NotificationPage> {
       if (_selectedFilter == 'Semua' || _selectedFilter == 'Peringatan') {
         try {
           officialWarnings = await (widget.warningService ?? WarningService())
-              .fetchActiveWarnings();
+              .fetchActiveWarnings()
+              .then(
+                (items) => items
+                    .where((warning) => warning.isOfficialWarning)
+                    .toList(),
+              );
         } catch (_) {
           // Notifikasi personal tetap dapat ditampilkan saat feed peringatan
           // resmi sedang tidak dapat dihubungi.
